@@ -16,6 +16,7 @@ import Goals from './pages/Goals';
 import AIAgents from './pages/AIAgents';
 import AIChat from './pages/AIChat';
 import Settings from './pages/Settings';
+import BrowserPage from './pages/BrowserPage';
 
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -41,6 +42,7 @@ function App() {
               <Route path="/goals" element={<Goals />} />
               <Route path="/ai-agents" element={<AIAgents />} />
               <Route path="/ai-agents/chat/:agentId" element={<AIChat />} />
+              <Route path="/browser" element={<BrowserPage />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>

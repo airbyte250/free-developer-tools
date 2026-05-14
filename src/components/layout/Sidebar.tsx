@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, FolderKanban, Users, MessageSquare, Calendar,
   Clock, BarChart3, FileText, UserCheck, Target, Settings,
-  Activity, ChevronLeft, ChevronRight, Zap, Bot
+  Activity, ChevronLeft, ChevronRight, Zap, Bot, Globe
 } from 'lucide-react';
 
 const navItems = [
@@ -18,6 +18,7 @@ const navItems = [
   { path: '/attendance', icon: UserCheck, label: 'Attendance' },
   { path: '/goals', icon: Target, label: 'Goals & OKRs' },
   { path: '/ai-agents', icon: Bot, label: 'AI Agents' },
+  { path: '/browser', icon: Globe, label: 'Browser' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
