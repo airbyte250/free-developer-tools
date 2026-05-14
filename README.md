@@ -45,41 +45,97 @@ A powerful, all-in-one company workspace application built with React, TypeScrip
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (web)
 npm run dev
 
-# Build for production
+# Build for production (web)
 npm run build
 
 # Preview production build
 npm run preview
 ```
 
+## Desktop App (macOS / Windows / Linux)
+
+The workspace is also available as a native desktop application built with Electron, featuring:
+- **Native macOS menu bar** with keyboard shortcuts (Cmd+1-6 for navigation)
+- **System tray** with quick access to modules
+- **Dock badge** notifications
+- **Native notifications** support
+- **Traffic light (close/minimize/fullscreen)** window controls
+- **Dark mode** support
+- **Keyboard shortcuts** for all major features
+
+### Development
+
+```bash
+# Run desktop app in development mode (hot-reload)
+npm run electron:dev
+```
+
+### Building Desktop App
+
+```bash
+# Build for macOS (.dmg + .zip)
+npm run electron:build
+
+# Build for Linux (AppImage + .deb)
+npm run electron:build:linux
+
+# Build for Windows (.exe installer)
+npm run electron:build:win
+
+# Build for all platforms
+npm run electron:build:all
+```
+
+The built application will be in the `dist-electron/` directory.
+
+### macOS Installation
+1. Run `npm run electron:build`
+2. Open the generated `.dmg` file from `dist-electron/`
+3. Drag "WorkSpace" to Applications folder
+4. Launch from Applications or Spotlight (Cmd+Space → "WorkSpace")
+
 ## Project Structure
 
 ```
-src/
-  components/
-    layout/         # Sidebar, Header
-  data/
-    mockData.ts     # Sample data for all modules
-  pages/
-    Dashboard.tsx   # Main dashboard
-    Projects.tsx    # Project & task management
-    Team.tsx        # Team directory
-    Chat.tsx        # Messaging system
-    Activity.tsx    # Activity feed
-    CalendarPage.tsx # Calendar & events
-    TimeTracking.tsx # Time tracker
-    Reports.tsx     # Analytics & reports
-    Documents.tsx   # File management
-    Attendance.tsx  # Attendance & leaves
-    Goals.tsx       # Goals & OKRs
-    Settings.tsx    # Workspace settings
-  types/
-    index.ts        # TypeScript interfaces
-  App.tsx           # Main app with routing
-  main.tsx          # Entry point
+├── electron/
+│   ├── main.js         # Electron main process (window, menu, tray, IPC)
+│   └── preload.js      # Preload script (IPC bridge)
+├── build/
+│   ├── icon.png        # App icon (1024x1024)
+│   └── dmg-background.png  # macOS DMG background
+├── src/
+│   ├── components/
+│   │   └── layout/     # Sidebar, Header
+│   ├── data/
+│   │   ├── mockData.ts     # Sample data for all modules
+│   │   └── aiAgentsData.ts # AI agents configuration
+│   ├── hooks/
+│   │   └── useElectron.ts  # Electron IPC hooks
+│   ├── pages/
+│   │   ├── Dashboard.tsx   # Main dashboard
+│   │   ├── Projects.tsx    # Project & task management
+│   │   ├── Team.tsx        # Team directory
+│   │   ├── Chat.tsx        # Messaging system
+│   │   ├── Activity.tsx    # Activity feed
+│   │   ├── CalendarPage.tsx # Calendar & events
+│   │   ├── TimeTracking.tsx # Time tracker
+│   │   ├── Reports.tsx     # Analytics & reports
+│   │   ├── Documents.tsx   # File management
+│   │   ├── Attendance.tsx  # Attendance & leaves
+│   │   ├── Goals.tsx       # Goals & OKRs
+│   │   ├── AIAgents.tsx    # AI agents dashboard
+│   │   ├── AIChat.tsx      # AI agent chat interface
+│   │   ├── BrowserPage.tsx # Built-in browser
+│   │   └── Settings.tsx    # Workspace settings
+│   ├── types/
+│   │   └── index.ts        # TypeScript interfaces
+│   ├── App.tsx             # Main app with routing
+│   └── main.tsx            # Entry point
+├── electron-builder.yml    # Desktop app build config
+└── package.json
 ```
 
 ## License

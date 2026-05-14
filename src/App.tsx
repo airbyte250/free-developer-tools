@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useElectronNavigation } from './hooks/useElectron';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Dashboard from './pages/Dashboard';
@@ -18,12 +19,12 @@ import AIChat from './pages/AIChat';
 import Settings from './pages/Settings';
 import BrowserPage from './pages/BrowserPage';
 
-function App() {
+function AppContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useElectronNavigation();
 
   return (
-    <BrowserRouter>
-      <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
         <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
         <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
           <Header />
@@ -48,7 +49,17 @@ function App() {
           </main>
         </div>
       </div>
-    </BrowserRouter>
+  );
+}
+
+const isElectron = Boolean(window.electronAPI?.isElectron);
+const Router = isElectron ? HashRouter : BrowserRouter;
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

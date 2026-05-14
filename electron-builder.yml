@@ -1,0 +1,57 @@
+appId: com.workspace.app
+productName: WorkSpace
+copyright: Copyright © 2024 WorkSpace
+
+directories:
+  buildResources: build
+  output: dist-electron
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - public/**/*
+  - package.json
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.png
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+dmg:
+  background: build/dmg-background.png
+  icon: build/icon.png
+  iconSize: 128
+  window:
+    width: 600
+    height: 400
+  contents:
+    - x: 170
+      y: 200
+      type: file
+    - x: 430
+      y: 200
+      type: link
+      path: /Applications
+
+linux:
+  target:
+    - target: AppImage
+    - target: deb
+  category: Office
+  icon: build/icon.png
+
+win:
+  target:
+    - target: nsis
+  icon: build/icon.png
