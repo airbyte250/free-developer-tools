@@ -1,10 +1,12 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Globe, ArrowLeft, ArrowRight, RotateCcw, Home, Star, StarOff,
   Plus, X, Search, ExternalLink, Shield, Lock, Bookmark,
   ChevronDown, Clock, Trash2, User, UserPlus,
-  Monitor, Layout, Send, Bot, Sparkles
+  Monitor, Layout, Send, Bot, Sparkles, AlertTriangle
 } from 'lucide-react';
+
+const isElectron = Boolean(window.electronAPI?.isElectron);
 
 // ======================== TYPES ========================
 
@@ -273,6 +275,10 @@ export default function BrowserPage() {
   const [viewMode, setViewMode] = useState<'single' | 'split'>('single');
   const [splitProfileId, setSplitProfileId] = useState<string | null>(null);
 
+  // Electron BrowserView state
+  const [electronNavState, setElectronNavState] = useState<{ canGoBack: boolean; canGoForward: boolean }>({ canGoBack: false, canGoForward: false });
+  const browserAreaRef = useRef<HTMLDivElement>(null);
+
   // Get active profile
   const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0];
   const splitProfile = splitProfileId ? profiles.find(p => p.id === splitProfileId) : null;
@@ -280,9 +286,65 @@ export default function BrowserPage() {
   // Active tab from profile
   const activeTab = activeProfile.tabs.find(t => t.id === activeProfile.activeTabId) || activeProfile.tabs[0];
   const currentNavHistory = activeProfile.navHistory[activeProfile.activeTabId] || { stack: [''], index: 0 };
-  const canGoBack = currentNavHistory.index > 0;
-  const canGoForward = currentNavHistory.index < currentNavHistory.stack.length - 1;
+  const canGoBack = isElectron ? electronNavState.canGoBack : currentNavHistory.index > 0;
+  const canGoForward = isElectron ? electronNavState.canGoForward : currentNavHistory.index < currentNavHistory.stack.length - 1;
   const isBookmarked = activeTab?.url ? activeProfile.bookmarks.some(b => b.url === activeTab.url) : false;
+
+  // Initialize Electron browser profiles on mount
+  useEffect(() => {
+    if (!isElectron) return;
+    profiles.forEach(p => {
+      window.electronAPI?.browserCreateProfile(p.id, p.name, p.id);
+    });
+
+    window.electronAPI?.onBrowserNavigated((data) => {
+      setProfiles(prev => prev.map(p =>
+        p.id === data.profileId ? {
+          ...p,
+          tabs: p.tabs.map(t => t.id === p.activeTabId ? { ...t, url: data.url, title: data.title || getDomain(data.url) } : t),
+          history: [{ id: `h-${Date.now()}`, title: data.title || getDomain(data.url), url: data.url, visitedAt: new Date().toLocaleTimeString() }, ...p.history.slice(0, 49)],
+        } : p
+      ));
+      setAddressBarValue(data.url);
+      window.electronAPI?.browserCanNavigate(data.profileId).then(setElectronNavState);
+    });
+
+    window.electronAPI?.onBrowserTitleUpdated((data) => {
+      setProfiles(prev => prev.map(p =>
+        p.id === data.profileId ? {
+          ...p,
+          tabs: p.tabs.map(t => t.id === p.activeTabId ? { ...t, title: data.title } : t),
+        } : p
+      ));
+    });
+
+    window.electronAPI?.onBrowserLoading((data) => {
+      setProfiles(prev => prev.map(p =>
+        p.id === data.profileId ? {
+          ...p,
+          tabs: p.tabs.map(t => t.id === p.activeTabId ? { ...t, isLoading: data.isLoading } : t),
+        } : p
+      ));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Show/hide Electron BrowserView when profile changes
+  useEffect(() => {
+    if (!isElectron || !browserAreaRef.current) return;
+
+    const rect = browserAreaRef.current.getBoundingClientRect();
+    const bounds = { x: Math.round(rect.left), y: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) };
+
+    if (activeTab?.url) {
+      window.electronAPI?.browserShow(activeProfileId, bounds);
+    } else {
+      window.electronAPI?.browserHide();
+    }
+
+    return () => { window.electronAPI?.browserHide(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProfileId, activeTab?.url]);
 
   // Profile update helper
   const updateProfile = useCallback((profileId: string, updates: Partial<BrowserProfile>) => {
@@ -295,6 +357,16 @@ export default function BrowserPage() {
     const processedUrl = ensureProtocol(url);
     const profile = profiles.find(p => p.id === pid);
     if (!profile) return;
+
+    // In Electron: use real BrowserView
+    if (isElectron && processedUrl) {
+      window.electronAPI?.browserNavigate(pid, processedUrl);
+      // Also update the browser area bounds
+      if (browserAreaRef.current) {
+        const rect = browserAreaRef.current.getBoundingClientRect();
+        window.electronAPI?.browserShow(pid, { x: Math.round(rect.left), y: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) });
+      }
+    }
 
     const tabId = profile.activeTabId;
     const newTabs = profile.tabs.map(t =>
@@ -318,15 +390,21 @@ export default function BrowserPage() {
     updateProfile(pid, { tabs: newTabs, navHistory: newNavHistory, history: newHistory, lastUsed: 'Just now' });
     if (pid === activeProfileId) setAddressBarValue(processedUrl);
 
-    setTimeout(() => {
-      setProfiles(prev => prev.map(p =>
-        p.id === pid ? { ...p, tabs: p.tabs.map(t => t.id === tabId ? { ...t, isLoading: false } : t) } : p
-      ));
-    }, 1500);
+    if (!isElectron) {
+      setTimeout(() => {
+        setProfiles(prev => prev.map(p =>
+          p.id === pid ? { ...p, tabs: p.tabs.map(t => t.id === tabId ? { ...t, isLoading: false } : t) } : p
+        ));
+      }, 1500);
+    }
   }, [activeProfileId, profiles, updateProfile]);
 
   const goBack = () => {
     if (!canGoBack) return;
+    if (isElectron) {
+      window.electronAPI?.browserGoBack(activeProfileId);
+      return;
+    }
     const newIndex = currentNavHistory.index - 1;
     const url = currentNavHistory.stack[newIndex];
     const newNavHist = { ...activeProfile.navHistory, [activeProfile.activeTabId]: { ...currentNavHistory, index: newIndex } };
@@ -344,6 +422,10 @@ export default function BrowserPage() {
 
   const goForward = () => {
     if (!canGoForward) return;
+    if (isElectron) {
+      window.electronAPI?.browserGoForward(activeProfileId);
+      return;
+    }
     const newIndex = currentNavHistory.index + 1;
     const url = currentNavHistory.stack[newIndex];
     const newNavHist = { ...activeProfile.navHistory, [activeProfile.activeTabId]: { ...currentNavHistory, index: newIndex } };
@@ -361,6 +443,10 @@ export default function BrowserPage() {
 
   const refresh = () => {
     if (!activeTab?.url) return;
+    if (isElectron) {
+      window.electronAPI?.browserReload(activeProfileId);
+      return;
+    }
     const newTabs = activeProfile.tabs.map(t => t.id === activeProfile.activeTabId ? { ...t, isLoading: true } : t);
     updateProfile(activeProfileId, { tabs: newTabs });
     if (iframeRef.current) iframeRef.current.src = activeTab.url;
@@ -425,13 +511,27 @@ export default function BrowserPage() {
 
   // Profile Management
   const switchProfile = (profileId: string) => {
+    // In Electron: hide current BrowserView, show new one
+    if (isElectron) {
+      window.electronAPI?.browserHide();
+    }
     setActiveProfileId(profileId);
     const profile = profiles.find(p => p.id === profileId);
     if (profile) {
       const tab = profile.tabs.find(t => t.id === profile.activeTabId);
       setAddressBarValue(tab?.url || '');
+      if (isElectron && tab?.url && browserAreaRef.current) {
+        const rect = browserAreaRef.current.getBoundingClientRect();
+        window.electronAPI?.browserShow(profileId, { x: Math.round(rect.left), y: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) });
+      }
     }
     setShowProfileManager(false);
+  };
+
+  // Open in separate Chromium window (Electron only)
+  const openInNewWindow = () => {
+    if (!isElectron) return;
+    window.electronAPI?.browserOpenWindow(activeProfileId, activeTab?.url || undefined);
   };
 
   const createProfile = () => {
@@ -439,6 +539,9 @@ export default function BrowserPage() {
     const id = `profile-${Date.now()}`;
     const newProfile = createDefaultProfile(id, newProfileName.trim(), newProfileAvatar, newProfileColor);
     setProfiles(prev => [...prev, newProfile]);
+    if (isElectron) {
+      window.electronAPI?.browserCreateProfile(id, newProfileName.trim(), id);
+    }
     setNewProfileName('');
     setNewProfileAvatar('👤');
     setNewProfileColor('bg-blue-500');
@@ -449,6 +552,9 @@ export default function BrowserPage() {
 
   const deleteProfile = (profileId: string) => {
     if (profiles.length <= 1) return;
+    if (isElectron) {
+      window.electronAPI?.browserDeleteProfile(profileId);
+    }
     setProfiles(prev => prev.filter(p => p.id !== profileId));
     if (activeProfileId === profileId) {
       const remaining = profiles.filter(p => p.id !== profileId);
@@ -489,6 +595,17 @@ export default function BrowserPage() {
   const handleAIAction = (action: { label: string; url?: string; type: 'navigate' | 'extract' | 'fill' | 'action' }) => {
     if (action.type === 'navigate' && action.url) {
       navigateTo(action.url);
+    }
+    if (isElectron && action.type === 'extract') {
+      window.electronAPI?.browserGetPageContent(activeProfileId).then(result => {
+        if (result.success && result.content) {
+          const msg: AIBrowserMessage = {
+            id: `msg-${Date.now()}`, role: 'ai', timestamp: new Date().toLocaleTimeString(),
+            content: `**Extracted from ${result.content.title}:**\n\n- URL: ${result.content.url}\n- Headings: ${result.content.headings?.join(', ') || 'None'}\n- Links: ${result.content.links?.length || 0}\n- Forms: ${result.content.forms || 0}\n- Images: ${result.content.images || 0}\n\n**Text preview:**\n${result.content.text?.substring(0, 500)}...`,
+          };
+          setAiMessages(prev => [...prev, msg]);
+        }
+      });
     }
   };
 
@@ -735,9 +852,16 @@ export default function BrowserPage() {
                   className="flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder-gray-400"
                 />
                 {activeTab?.url && (
-                  <button type="button" onClick={() => window.open(activeTab.url, '_blank')} className="p-1 hover:bg-gray-200 rounded" title="Open externally">
-                    <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
-                  </button>
+                  <>
+                    {isElectron && (
+                      <button type="button" onClick={openInNewWindow} className="p-1 hover:bg-gray-200 rounded" title="Open in new Chromium window">
+                        <Monitor className="w-3.5 h-3.5 text-gray-400" />
+                      </button>
+                    )}
+                    <button type="button" onClick={() => window.open(activeTab.url, '_blank')} className="p-1 hover:bg-gray-200 rounded" title="Open externally">
+                      <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                    </button>
+                  </>
                 )}
               </div>
             </form>
@@ -813,7 +937,7 @@ export default function BrowserPage() {
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 bg-white relative">
+          <div ref={browserAreaRef} className="flex-1 bg-white relative">
             {isHomePage ? (
               <div className="flex flex-col items-center justify-center h-full bg-gradient-to-b from-gray-50 to-white p-8">
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
@@ -821,7 +945,19 @@ export default function BrowserPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">WorkSpace Browser</h2>
                 <p className="text-gray-500 mb-2 text-sm">Profile: <span className="font-medium text-indigo-600">{activeProfile.name}</span></p>
-                <p className="text-gray-400 text-xs mb-8">Independent session with separate cookies, history & bookmarks</p>
+                {isElectron ? (
+                  <p className="text-emerald-600 text-xs mb-1 font-semibold flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5" /> Real Chromium Browser — Full independent session
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-lg mb-2 text-xs">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>Web mode uses embedded frames. Download the <strong>desktop app</strong> for full Chromium browser with independent sessions, cookies & AI control.</span>
+                  </div>
+                )}
+                <p className="text-gray-400 text-xs mb-8">
+                  {isElectron ? 'Each profile runs a real Chromium instance with separate cookies, cache, storage & login sessions' : 'Independent session with separate cookies, history & bookmarks'}
+                </p>
 
                 <form onSubmit={(e) => { e.preventDefault(); navigateTo(addressBarValue); }} className="w-full max-w-xl mb-10">
                   <div className="flex items-center bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 shadow-sm focus-within:border-indigo-400 focus-within:shadow-md transition-all">
@@ -846,13 +982,26 @@ export default function BrowserPage() {
                 </div>
 
                 <div className="mt-8 flex items-center gap-4 text-xs text-gray-400">
-                  <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Secure</span>
+                  <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> {isElectron ? 'Real Chromium' : 'Secure'}</span>
                   <span>•</span>
                   <span>{activeProfile.tabs.length} tabs</span>
                   <span>•</span>
                   <span>{activeProfile.bookmarks.length} bookmarks</span>
                   <span>•</span>
                   <span>{activeProfile.history.length} history</span>
+                </div>
+              </div>
+            ) : isElectron ? (
+              /* In Electron, the BrowserView overlays this area — show placeholder */
+              <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                {activeTab?.isLoading && (
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-gray-200 z-10">
+                    <div className="h-full bg-indigo-500 animate-pulse" style={{ width: '60%' }} />
+                  </div>
+                )}
+                <div className="text-center text-gray-400">
+                  <Globe className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm">Loading in Chromium browser...</p>
                 </div>
               </div>
             ) : (
