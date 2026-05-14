@@ -4,7 +4,6 @@ import {
   Clock, BarChart3, FileText, UserCheck, Target, Settings,
   Activity, ChevronLeft, ChevronRight, Zap
 } from 'lucide-react';
-import { useState } from 'react';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,8 +20,12 @@ const navItems = [
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside className={`${collapsed ? 'w-20' : 'w-64'} bg-gradient-to-b from-indigo-950 to-indigo-900 text-white flex flex-col transition-all duration-300 fixed left-0 top-0 h-screen z-30`}>
@@ -41,7 +44,7 @@ export default function Sidebar() {
           </div>
         )}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={onToggle}
           className={`p-1.5 rounded-lg hover:bg-indigo-800 transition-colors ${collapsed ? 'absolute -right-3 top-5 bg-indigo-700 shadow-lg' : ''}`}
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

@@ -119,7 +119,7 @@ export default function Goals() {
             <div className="space-y-3">
               <h4 className="text-sm font-semibold text-gray-700">Key Results</h4>
               {goal.keyResults.map(kr => {
-                const pct = Math.round((kr.current / kr.target) * 100);
+                const pct = kr.target === 0 ? (kr.current === 0 ? 100 : 0) : Math.round((kr.current / kr.target) * 100);
                 return (
                   <div key={kr.id} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
