@@ -152,3 +152,34 @@ export interface Notification {
   timestamp: string;
   link?: string;
 }
+
+export type AIAgentId = 'hr-assistant' | 'project-manager' | 'customer-support' | 'code-reviewer' | 'analytics-assistant' | 'chat-bot';
+
+export interface AIAgent {
+  id: AIAgentId;
+  name: string;
+  role: string;
+  description: string;
+  avatar: string;
+  color: string;
+  gradient: string;
+  status: 'active' | 'idle' | 'offline';
+  capabilities: string[];
+  stats: { label: string; value: string }[];
+  quickActions: string[];
+}
+
+export interface AIMessage {
+  id: string;
+  agentId: AIAgentId;
+  role: 'user' | 'agent';
+  content: string;
+  timestamp: string;
+  actions?: AIMessageAction[];
+}
+
+export interface AIMessageAction {
+  label: string;
+  type: 'link' | 'action' | 'confirm';
+  value: string;
+}

@@ -13,6 +13,8 @@ import Reports from './pages/Reports';
 import Documents from './pages/Documents';
 import Attendance from './pages/Attendance';
 import Goals from './pages/Goals';
+import AIAgents from './pages/AIAgents';
+import AIChat from './pages/AIChat';
 import Settings from './pages/Settings';
 
 function App() {
@@ -37,6 +39,8 @@ function App() {
               <Route path="/documents" element={<Documents />} />
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/goals" element={<Goals />} />
+              <Route path="/ai-agents" element={<AIAgents />} />
+              <Route path="/ai-agents/chat/:agentId" element={<AIChat />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
