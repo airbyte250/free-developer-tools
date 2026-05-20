@@ -9,7 +9,7 @@ apt-get update -qq && apt-get install -y -qq ffmpeg git wget > /dev/null 2>&1 ||
 echo "[1/5] System deps installed"
 
 # Upgrade torch to 2.6+ (needed for diffusers 0.33+ custom_op support)
-pip install --root-user-action=ignore -q "torch>=2.5" --index-url https://download.pytorch.org/whl/cu124 || { echo "ERROR: torch upgrade failed"; exit 1; }
+pip install --root-user-action=ignore -q "torch>=2.5" "torchvision>=0.20" --index-url https://download.pytorch.org/whl/cu124 || { echo "ERROR: torch upgrade failed"; exit 1; }
 
 # Install diffusers and deps
 pip install --root-user-action=ignore -q "diffusers>=0.33.0" transformers accelerate safetensors sentencepiece protobuf ftfy huggingface_hub || { echo "ERROR: pip install failed"; exit 1; }
