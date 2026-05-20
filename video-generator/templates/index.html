@@ -3,289 +3,623 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Video Generator - Wan 2.2 on Vast.ai</title>
+    <title>VideoForge AI — Wan 2.2 Video Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #18181b;
+            --bg-card: #1c1c22;
+            --bg-card-hover: #222228;
+            --bg-input: #131316;
+            --border: #27272a;
+            --border-hover: #3f3f46;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #8b5cf6;
+            --accent-hover: #7c3aed;
+            --accent-glow: rgba(139, 92, 246, 0.15);
+            --success: #22c55e;
+            --success-bg: rgba(34, 197, 94, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --info: #3b82f6;
+            --info-bg: rgba(59, 130, 246, 0.1);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,0.4);
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f0f1a;
-            color: #e0e0e0;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            line-height: 1.6;
         }
-        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
-        h1 {
-            text-align: center;
-            font-size: 2rem;
-            margin: 30px 0;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+
+        /* Layout */
+        .app { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 100;
         }
-        .subtitle {
-            text-align: center;
-            color: #888;
-            margin-bottom: 30px;
-            font-size: 0.9rem;
+        .main { flex: 1; margin-left: 260px; padding: 32px 40px; max-width: 1100px; }
+
+        /* Sidebar */
+        .logo { display: flex; align-items: center; gap: 10px; padding: 0 8px; margin-bottom: 32px; }
+        .logo-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), #ec4899);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 800; color: white;
         }
+        .logo-text { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+        .logo-badge {
+            font-size: 10px; background: var(--accent-glow); color: var(--accent);
+            padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 4px;
+        }
+
+        .nav { list-style: none; flex: 1; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            border-radius: var(--radius-sm); cursor: pointer; font-size: 14px;
+            color: var(--text-secondary); transition: all 0.15s; margin-bottom: 2px;
+            font-weight: 500; position: relative;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+        .nav-item.active {
+            background: var(--accent-glow); color: var(--accent);
+        }
+        .nav-item.active::before {
+            content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+            width: 3px; height: 20px; background: var(--accent); border-radius: 0 2px 2px 0;
+        }
+        .nav-icon { font-size: 18px; width: 24px; text-align: center; }
+        .nav-count {
+            margin-left: auto; font-size: 11px; background: var(--border);
+            padding: 1px 7px; border-radius: 10px; font-weight: 600;
+        }
+
+        .sidebar-footer {
+            padding: 16px 8px; border-top: 1px solid var(--border);
+            margin-top: 16px; font-size: 12px; color: var(--text-muted);
+        }
+        .credit-display {
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--bg-card); padding: 10px 12px; border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+        }
+        .credit-amount { font-weight: 700; color: var(--success); font-size: 14px; }
+
+        /* Page sections */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .page-header { margin-bottom: 32px; }
+        .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+        .page-desc { color: var(--text-secondary); font-size: 14px; }
+
+        /* Cards */
         .card {
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 24px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;
+            transition: border-color 0.15s;
+        }
+        .card:hover { border-color: var(--border-hover); }
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 20px;
-            border: 1px solid #2a2a4a;
         }
-        .card h2 {
-            font-size: 1.2rem;
-            margin-bottom: 16px;
-            color: #a78bfa;
+        .card-title {
+            font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px;
         }
-        label {
-            display: block;
+        .card-title .step-num {
+            width: 24px; height: 24px; border-radius: 50%; font-size: 12px;
+            background: var(--accent); color: white; display: flex;
+            align-items: center; justify-content: center; font-weight: 700;
+        }
+
+        /* Form elements */
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary);
             margin-bottom: 6px;
-            font-size: 0.9rem;
-            color: #aaa;
         }
-        textarea, select, input[type="number"] {
-            width: 100%;
-            padding: 12px;
-            background: #16162a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            color: #e0e0e0;
-            font-size: 1rem;
-            margin-bottom: 16px;
-            resize: vertical;
+        .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        textarea, select, input[type="text"] {
+            width: 100%; padding: 10px 14px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
         textarea:focus, select:focus, input:focus {
-            outline: none;
-            border-color: #667eea;
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
-        .row { display: flex; gap: 16px; }
-        .row > div { flex: 1; }
+        textarea { resize: vertical; min-height: 100px; line-height: 1.5; }
+        select { cursor: pointer; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2371717a' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center;
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        /* Buttons */
         .btn {
-            display: inline-block;
-            padding: 12px 32px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 10px 20px; border: none; border-radius: var(--radius-sm);
+            font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+            transition: all 0.15s; text-decoration: none;
         }
         .btn-primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            width: 100%;
+            background: var(--accent); color: white;
         }
-        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-            padding: 8px 16px;
-            font-size: 0.85rem;
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(139,92,246,0.3); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-lg { padding: 14px 28px; font-size: 15px; width: 100%; border-radius: var(--radius); }
+        .btn-outline {
+            background: transparent; color: var(--text-secondary);
+            border: 1px solid var(--border); padding: 8px 16px; font-size: 13px;
         }
-        .btn-success {
-            background: #28a745;
-            color: white;
-            padding: 8px 16px;
-            font-size: 0.85rem;
+        .btn-outline:hover { border-color: var(--text-secondary); color: var(--text-primary); background: rgba(255,255,255,0.03); }
+        .btn-danger-sm {
+            background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(239,68,68,0.2);
+            padding: 6px 12px; font-size: 12px;
         }
-        .progress-container {
-            display: none;
-            margin-top: 20px;
+        .btn-danger-sm:hover { background: rgba(239,68,68,0.2); }
+        .btn-success-sm {
+            background: var(--success-bg); color: var(--success); border: 1px solid rgba(34,197,94,0.2);
+            padding: 6px 12px; font-size: 12px;
         }
-        .progress-bar-bg {
-            background: #2a2a4a;
-            border-radius: 10px;
-            height: 24px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            border-radius: 10px;
-            transition: width 0.5s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: white;
-            min-width: 30px;
-        }
-        .status-msg {
-            color: #aaa;
-            font-size: 0.9rem;
-            text-align: center;
-            margin: 8px 0;
-        }
-        .cost-info {
-            background: #1e1e3a;
-            border-left: 3px solid #667eea;
-            padding: 12px 16px;
-            margin: 16px 0;
-            border-radius: 0 8px 8px 0;
-            font-size: 0.85rem;
-        }
-        .cost-info strong { color: #a78bfa; }
-        .gpu-list {
-            display: grid;
-            gap: 10px;
-        }
+        .btn-success-sm:hover { background: rgba(34,197,94,0.2); }
+
+        /* GPU Cards */
+        .gpu-grid { display: grid; gap: 10px; margin-top: 16px; }
         .gpu-card {
-            background: #16162a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 12px 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s;
         }
-        .gpu-card:hover { border-color: #667eea; }
-        .gpu-card.selected { border-color: #667eea; background: #1e1e3a; }
-        .gpu-name { font-weight: 600; }
-        .gpu-price { color: #a78bfa; font-size: 0.9rem; }
-        .gpu-details { color: #888; font-size: 0.8rem; }
-        .video-result {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
+        .gpu-card:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+        .gpu-card.selected { border-color: var(--accent); background: var(--accent-glow); }
+        .gpu-card .gpu-name { font-size: 14px; font-weight: 600; }
+        .gpu-card .gpu-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .gpu-card .gpu-price { font-size: 14px; font-weight: 700; color: var(--accent); text-align: right; }
+        .gpu-card .gpu-price-inr { font-size: 11px; color: var(--text-muted); }
+        .gpu-card .gpu-badge {
+            display: inline-block; padding: 2px 6px; border-radius: 4px;
+            font-size: 10px; font-weight: 600; margin-top: 4px;
         }
-        .video-result video {
-            max-width: 100%;
-            border-radius: 12px;
-            margin: 16px 0;
+        .gpu-badge.cheap { background: var(--success-bg); color: var(--success); }
+        .gpu-badge.mid { background: var(--warning-bg); color: var(--warning); }
+
+        /* Cost estimate */
+        .cost-bar {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 14px 16px; margin: 20px 0;
+            display: flex; align-items: center; gap: 16px;
         }
-        .jobs-list { margin-top: 10px; }
-        .job-item {
-            background: #16162a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .cost-main { font-size: 22px; font-weight: 800; color: var(--accent); }
+        .cost-details { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+        .cost-tag {
+            margin-left: auto; padding: 4px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 600;
         }
-        .job-status {
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
+        .cost-tag.budget { background: var(--success-bg); color: var(--success); }
+        .cost-tag.moderate { background: var(--warning-bg); color: var(--warning); }
+
+        /* Progress */
+        .progress-card { display: none; }
+        .progress-card.visible { display: block; }
+        .progress-steps { display: flex; gap: 0; margin-bottom: 20px; position: relative; }
+        .progress-step {
+            flex: 1; text-align: center; position: relative; padding: 0 8px;
         }
-        .job-status.generating { background: #2563eb33; color: #60a5fa; }
-        .job-status.completed { background: #16a34a33; color: #4ade80; }
-        .job-status.error { background: #dc262633; color: #f87171; }
-        .job-status.starting, .job-status.provisioning { background: #d9770633; color: #fbbf24; }
-        .footer {
-            text-align: center;
-            color: #555;
-            padding: 30px 0;
-            font-size: 0.8rem;
+        .progress-step .step-dot {
+            width: 32px; height: 32px; border-radius: 50%; margin: 0 auto 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; border: 2px solid var(--border);
+            background: var(--bg-secondary); color: var(--text-muted);
+            transition: all 0.3s; position: relative; z-index: 2;
         }
-        @media (max-width: 600px) {
-            .row { flex-direction: column; gap: 0; }
-            h1 { font-size: 1.5rem; }
+        .progress-step.active .step-dot { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+        .progress-step.done .step-dot { border-color: var(--success); color: white; background: var(--success); }
+        .progress-step .step-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+        .progress-step.active .step-label { color: var(--accent); }
+        .progress-step.done .step-label { color: var(--success); }
+
+        .progress-bar-track {
+            width: 100%; height: 6px; background: var(--border); border-radius: 3px;
+            overflow: hidden; margin: 16px 0 12px;
+        }
+        .progress-bar-fill {
+            height: 100%; background: linear-gradient(90deg, var(--accent), #ec4899);
+            border-radius: 3px; transition: width 0.5s ease; width: 0%;
+        }
+        .progress-text {
+            display: flex; justify-content: space-between; font-size: 13px;
+        }
+        .progress-pct { font-weight: 700; color: var(--accent); }
+        .progress-msg { color: var(--text-secondary); }
+
+        /* Video result */
+        .result-card { display: none; }
+        .result-card.visible { display: block; }
+        .result-card video {
+            width: 100%; border-radius: var(--radius); margin: 16px 0;
+            background: #000;
+        }
+        .result-actions { display: flex; gap: 10px; }
+
+        /* Job list */
+        .job-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 0; border-bottom: 1px solid var(--border);
+        }
+        .job-row:last-child { border-bottom: none; }
+        .job-prompt { font-size: 13px; font-weight: 500; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .job-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .status-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 600;
+        }
+        .status-badge.generating { background: var(--info-bg); color: var(--info); }
+        .status-badge.completed { background: var(--success-bg); color: var(--success); }
+        .status-badge.error { background: var(--danger-bg); color: var(--danger); }
+        .status-badge.starting, .status-badge.provisioning { background: var(--warning-bg); color: var(--warning); }
+
+        /* Instance row */
+        .inst-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 14px; background: var(--bg-input); border-radius: var(--radius-sm);
+            margin-bottom: 8px; border: 1px solid var(--border);
+        }
+        .inst-info { font-size: 13px; font-weight: 500; }
+        .inst-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .inst-actions { display: flex; gap: 6px; }
+
+        /* Toast */
+        .toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            padding: 12px 20px; border-radius: var(--radius-sm); font-size: 13px;
+            font-weight: 500; box-shadow: var(--shadow-lg); animation: slideIn 0.3s ease;
+            display: flex; align-items: center; gap: 8px; max-width: 400px;
+        }
+        .toast.success { background: #065f46; color: #a7f3d0; }
+        .toast.error { background: #7f1d1d; color: #fca5a5; }
+        .toast.info { background: #1e3a5f; color: #93c5fd; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center; padding: 40px 20px; color: var(--text-muted);
+        }
+        .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+        .empty-state p { font-size: 13px; }
+
+        /* Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, var(--border) 25%, var(--bg-card-hover) 50%, var(--border) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius-sm);
+        }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* Setup banner */
+        .setup-banner {
+            background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(236,72,153,0.1));
+            border: 1px solid rgba(139,92,246,0.2); border-radius: var(--radius);
+            padding: 16px 20px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .setup-banner .banner-icon { font-size: 24px; }
+        .setup-banner .banner-text { font-size: 13px; color: var(--text-secondary); }
+        .setup-banner .banner-text strong { color: var(--text-primary); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 16px; }
+            .form-row { grid-template-columns: 1fr; }
+            .cost-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: white; border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Tab navigation for mobile */
+        .mobile-nav {
+            display: none; position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--bg-secondary); border-top: 1px solid var(--border);
+            padding: 8px 0; z-index: 100;
+        }
+        .mobile-nav-items { display: flex; justify-content: space-around; }
+        .mobile-nav-item {
+            text-align: center; padding: 6px 12px; font-size: 10px;
+            color: var(--text-muted); cursor: pointer;
+        }
+        .mobile-nav-item.active { color: var(--accent); }
+        .mobile-nav-item .mobile-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+        @media (max-width: 768px) {
+            .mobile-nav { display: block; }
+            body { padding-bottom: 70px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>AI Video Generator</h1>
-        <p class="subtitle">Wan 2.2 on Vast.ai GPU Cloud &mdash; 5 min video for ~&#8377;100</p>
+    <div class="toast-container" id="toast-container"></div>
 
-        <!-- GPU Selection -->
-        <div class="card" id="gpu-section">
-            <h2>1. Select GPU</h2>
-            <button class="btn btn-primary" id="btn-search-gpu" onclick="searchGPUs()">
-                Search Available GPUs
-            </button>
-            <div id="gpu-list" class="gpu-list" style="display:none; margin-top:16px;"></div>
-        </div>
-
-        <!-- Prompt & Settings -->
-        <div class="card">
-            <h2>2. Video Settings</h2>
-            <label for="prompt">Describe your video</label>
-            <textarea id="prompt" rows="4"
-                placeholder="A cinematic aerial shot of mountains at golden hour, with clouds rolling through valleys and sunlight casting long shadows..."></textarea>
-
-            <div class="row">
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">V</div>
                 <div>
-                    <label for="duration">Duration (seconds)</label>
-                    <select id="duration">
-                        <option value="10">10 sec (2 clips) ~ test</option>
-                        <option value="30">30 sec (6 clips)</option>
-                        <option value="60">1 min (12 clips)</option>
-                        <option value="150">2.5 min (30 clips)</option>
-                        <option value="300">5 min (60 clips)</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="resolution">Resolution</label>
-                    <select id="resolution">
-                        <option value="480p">480p (faster, cheaper)</option>
-                        <option value="720p">720p (better quality)</option>
-                    </select>
+                    <span class="logo-text">VideoForge</span>
+                    <span class="logo-badge">AI</span>
                 </div>
             </div>
 
-            <div class="cost-info" id="cost-estimate">
-                <strong>Estimated cost:</strong> Select a GPU and duration to see estimate
+            <ul class="nav">
+                <li class="nav-item active" onclick="showPage('generate')">
+                    <span class="nav-icon">&#9889;</span> Generate
+                </li>
+                <li class="nav-item" onclick="showPage('history')">
+                    <span class="nav-icon">&#128196;</span> History
+                    <span class="nav-count" id="job-count">0</span>
+                </li>
+                <li class="nav-item" onclick="showPage('instances')">
+                    <span class="nav-icon">&#9881;</span> GPU Instances
+                    <span class="nav-count" id="instance-count">0</span>
+                </li>
+                <li class="nav-item" onclick="showPage('settings')">
+                    <span class="nav-icon">&#9881;</span> Settings
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="credit-display">
+                    <span style="font-size:12px; color:var(--text-muted)">Vast.ai Credit</span>
+                    <span class="credit-amount" id="credit-amount">—</span>
+                </div>
+                <div style="color:var(--text-muted); font-size:11px; text-align:center; margin-top:8px;">
+                    Powered by Wan 2.2 &bull; Open Source
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+
+            <!-- Generate Page -->
+            <div class="page active" id="page-generate">
+                <div class="page-header">
+                    <h1 class="page-title">Generate Video</h1>
+                    <p class="page-desc">Create AI-generated videos using Wan 2.2 on cloud GPUs</p>
+                </div>
+
+                <!-- Step 1: GPU -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span class="step-num">1</span> Select GPU</div>
+                        <button class="btn btn-outline" id="btn-search-gpu" onclick="searchGPUs()">
+                            Search Available GPUs
+                        </button>
+                    </div>
+                    <div id="gpu-grid" class="gpu-grid"></div>
+                    <div id="gpu-empty" class="empty-state" style="padding:20px">
+                        <p>Click "Search Available GPUs" to find the cheapest options on Vast.ai</p>
+                    </div>
+                </div>
+
+                <!-- Step 2: Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span class="step-num">2</span> Video Settings</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prompt</label>
+                        <textarea id="prompt" placeholder="Describe your video in detail...&#10;&#10;Example: A cinematic aerial shot of mountains at golden hour, with clouds rolling through valleys and sunlight casting long shadows across the peaks."></textarea>
+                        <p class="form-hint">Be specific — better prompts = better videos. Include style, camera movement, lighting details.</p>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Duration</label>
+                            <select id="duration" onchange="updateCost()">
+                                <option value="10">10 sec — 2 clips (test)</option>
+                                <option value="30">30 sec — 6 clips</option>
+                                <option value="60">1 min — 12 clips</option>
+                                <option value="150">2.5 min — 30 clips</option>
+                                <option value="300" selected>5 min — 60 clips</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Resolution</label>
+                            <select id="resolution" onchange="updateCost()">
+                                <option value="480p">480p — Faster, cheaper</option>
+                                <option value="720p">720p — Better quality</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="cost-bar" id="cost-bar">
+                        <div>
+                            <div class="cost-main" id="cost-amount">—</div>
+                            <div class="cost-details" id="cost-details">Select a GPU to see cost estimate</div>
+                        </div>
+                        <span class="cost-tag budget" id="cost-tag" style="display:none"></span>
+                    </div>
+
+                    <button class="btn btn-primary btn-lg" id="btn-generate" onclick="startGeneration()">
+                        Generate Video
+                    </button>
+                </div>
+
+                <!-- Progress -->
+                <div class="card progress-card" id="progress-card">
+                    <div class="card-header">
+                        <div class="card-title"><span class="step-num">3</span> Generation Progress</div>
+                        <span class="progress-pct" id="pct-display">0%</span>
+                    </div>
+                    <div class="progress-steps">
+                        <div class="progress-step active" id="ps-gpu">
+                            <div class="step-dot">1</div>
+                            <div class="step-label">GPU Setup</div>
+                        </div>
+                        <div class="progress-step" id="ps-gen">
+                            <div class="step-dot">2</div>
+                            <div class="step-label">Generating</div>
+                        </div>
+                        <div class="progress-step" id="ps-dl">
+                            <div class="step-dot">3</div>
+                            <div class="step-label">Download</div>
+                        </div>
+                        <div class="progress-step" id="ps-merge">
+                            <div class="step-dot">4</div>
+                            <div class="step-label">Merge</div>
+                        </div>
+                    </div>
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span class="progress-msg" id="progress-msg">Starting...</span>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div class="card result-card" id="result-card">
+                    <div class="card-header">
+                        <div class="card-title" style="color: var(--success);">&#10003; Video Ready</div>
+                    </div>
+                    <video id="result-video" controls></video>
+                    <div class="result-actions">
+                        <a id="download-link" class="btn btn-primary" download>Download MP4</a>
+                        <button class="btn btn-outline" onclick="resetForm()">Generate Another</button>
+                    </div>
+                </div>
             </div>
 
-            <button class="btn btn-primary" id="btn-generate" onclick="startGeneration()">
-                Generate Video
-            </button>
-        </div>
-
-        <!-- Progress -->
-        <div class="card progress-container" id="progress-section">
-            <h2>3. Generation Progress</h2>
-            <div class="progress-bar-bg">
-                <div class="progress-bar" id="progress-bar" style="width: 0%">0%</div>
+            <!-- History Page -->
+            <div class="page" id="page-history">
+                <div class="page-header">
+                    <h1 class="page-title">Generation History</h1>
+                    <p class="page-desc">All your generated videos</p>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Jobs</div>
+                        <button class="btn btn-outline" onclick="refreshJobs()">Refresh</button>
+                    </div>
+                    <div id="jobs-list"></div>
+                    <div id="jobs-empty" class="empty-state">
+                        <div class="empty-icon">&#127916;</div>
+                        <p>No videos generated yet. Go to Generate to create your first video.</p>
+                    </div>
+                </div>
             </div>
-            <p class="status-msg" id="status-msg">Starting...</p>
-        </div>
 
-        <!-- Result -->
-        <div class="card video-result" id="result-section">
-            <h2>Your Video is Ready!</h2>
-            <video id="result-video" controls></video>
-            <a id="download-link" class="btn btn-success" download>Download Video</a>
-        </div>
-
-        <!-- Jobs History -->
-        <div class="card">
-            <h2>Job History</h2>
-            <button class="btn btn-primary" style="padding:8px 16px; font-size:0.85rem; width:auto; margin-bottom:12px" onclick="refreshJobs()">
-                Refresh
-            </button>
-            <div id="jobs-list" class="jobs-list">
-                <p style="color:#666; font-size:0.9rem;">No jobs yet</p>
+            <!-- Instances Page -->
+            <div class="page" id="page-instances">
+                <div class="page-header">
+                    <h1 class="page-title">GPU Instances</h1>
+                    <p class="page-desc">Manage running Vast.ai GPU instances. Stop them when done to save money.</p>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Running Instances</div>
+                        <button class="btn btn-outline" onclick="refreshInstances()">Refresh</button>
+                    </div>
+                    <div id="instances-list"></div>
+                    <div id="instances-empty" class="empty-state">
+                        <div class="empty-icon">&#9989;</div>
+                        <p>No running instances — no GPU costs right now.</p>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <!-- Instance Management -->
-        <div class="card">
-            <h2>GPU Instance Management</h2>
-            <p style="color:#888; font-size:0.85rem; margin-bottom:12px;">
-                Running instances cost money. Stop them when done!
-            </p>
-            <button class="btn btn-primary" style="padding:8px 16px; font-size:0.85rem; width:auto; margin-bottom:12px" onclick="refreshInstances()">
-                Check Running Instances
-            </button>
-            <div id="instances-list"></div>
-        </div>
-
-        <div class="footer">
-            Powered by Wan 2.2 (Open Source) + Vast.ai GPU Cloud
-        </div>
+            <!-- Settings Page -->
+            <div class="page" id="page-settings">
+                <div class="page-header">
+                    <h1 class="page-title">Settings</h1>
+                    <p class="page-desc">Configure your video generation setup</p>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Vast.ai Configuration</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key Status</label>
+                        <div id="api-key-status" style="padding:10px 14px; background:var(--bg-input); border-radius:var(--radius-sm); border:1px solid var(--border); font-size:13px;">
+                            Checking...
+                        </div>
+                        <p class="form-hint">Set via CLI: <code style="background:var(--bg-input); padding:2px 6px; border-radius:4px; font-size:12px;">vastai set api-key YOUR_KEY</code></p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model</label>
+                        <div style="padding:10px 14px; background:var(--bg-input); border-radius:var(--radius-sm); border:1px solid var(--border); font-size:13px;">
+                            Wan 2.2 1.3B (Wan-AI/Wan2.1-T2V-1.3B) — Optimized for speed
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Output Directory</label>
+                        <div style="padding:10px 14px; background:var(--bg-input); border-radius:var(--radius-sm); border:1px solid var(--border); font-size:13px; font-family:monospace;">
+                            ./outputs/
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">About</div>
+                    </div>
+                    <div style="font-size:13px; color:var(--text-secondary); line-height:1.8;">
+                        <strong style="color:var(--text-primary)">VideoForge AI</strong> generates 5-minute videos for ~&#8377;100 using open-source Wan 2.2 model on rented cloud GPUs.<br>
+                        <strong>How it works:</strong> Rent cheapest GPU → Auto-install Wan 2.2 → Generate clips → Merge → Auto-stop GPU.<br>
+                        <strong>Cost:</strong> RTX 3090 @ ~&#8377;13/hr, RTX 4090 @ ~&#8377;34/hr. A 5-min video takes 2-6 hours depending on GPU.<br>
+                        <strong>Tech:</strong> Python + Flask + Vast.ai CLI + Paramiko SSH + FFmpeg.
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
+
+    <!-- Mobile nav -->
+    <nav class="mobile-nav">
+        <div class="mobile-nav-items">
+            <div class="mobile-nav-item active" onclick="showPage('generate')"><span class="mobile-icon">&#9889;</span>Generate</div>
+            <div class="mobile-nav-item" onclick="showPage('history')"><span class="mobile-icon">&#128196;</span>History</div>
+            <div class="mobile-nav-item" onclick="showPage('instances')"><span class="mobile-icon">&#9881;</span>GPUs</div>
+            <div class="mobile-nav-item" onclick="showPage('settings')"><span class="mobile-icon">&#9881;</span>Settings</div>
+        </div>
+    </nav>
 
     <script>
         let selectedOfferId = null;
@@ -293,39 +627,85 @@
         let currentJobId = null;
         let pollInterval = null;
 
+        /* Navigation */
+        function showPage(name) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + name).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
+            const navItems = document.querySelectorAll('.nav-item');
+            const mobileItems = document.querySelectorAll('.mobile-nav-item');
+            const pages = ['generate', 'history', 'instances', 'settings'];
+            const idx = pages.indexOf(name);
+            if (idx >= 0) {
+                navItems[idx].classList.add('active');
+                mobileItems[idx].classList.add('active');
+            }
+            if (name === 'history') refreshJobs();
+            if (name === 'instances') refreshInstances();
+            if (name === 'settings') checkApiKey();
+        }
+
+        /* Toast notifications */
+        function toast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            const icons = { success: '&#10003;', error: '&#10007;', info: 'ℹ' };
+            t.innerHTML = `<span>${icons[type] || ''}</span> ${message}`;
+            container.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 4000);
+        }
+
+        /* GPU Search */
         function searchGPUs() {
             const btn = document.getElementById('btn-search-gpu');
             btn.disabled = true;
-            btn.textContent = 'Searching...';
+            btn.innerHTML = '<span class="spinner"></span> Searching...';
+            document.getElementById('gpu-empty').style.display = 'none';
+
+            const grid = document.getElementById('gpu-grid');
+            grid.innerHTML = '<div class="skeleton" style="height:56px"></div><div class="skeleton" style="height:56px"></div><div class="skeleton" style="height:56px"></div>';
 
             fetch('/api/gpu-options')
                 .then(r => r.json())
                 .then(data => {
-                    btn.textContent = 'Refresh GPU List';
                     btn.disabled = false;
-                    const list = document.getElementById('gpu-list');
-                    list.style.display = 'grid';
+                    btn.innerHTML = 'Refresh GPUs';
                     if (data.error) {
-                        list.innerHTML = `<p style="color:#f87171">${data.error}</p>`;
+                        toast(data.error, 'error');
+                        grid.innerHTML = '';
+                        document.getElementById('gpu-empty').style.display = 'block';
                         return;
                     }
-                    list.innerHTML = data.gpus.map(gpu => `
-                        <div class="gpu-card" onclick="selectGPU('${gpu.offer_id}', ${gpu.price_per_hour}, this)">
+                    if (!data.gpus || data.gpus.length === 0) {
+                        grid.innerHTML = '';
+                        document.getElementById('gpu-empty').style.display = 'block';
+                        return;
+                    }
+                    grid.innerHTML = data.gpus.map((gpu, i) => {
+                        const badge = gpu.price_per_hour < 0.2 ? '<span class="gpu-badge cheap">Best Value</span>' :
+                                     gpu.price_per_hour < 0.5 ? '<span class="gpu-badge mid">Recommended</span>' : '';
+                        return `
+                        <div class="gpu-card" onclick="selectGPU('${gpu.offer_id}', ${gpu.price_per_hour}, this)" data-id="${gpu.offer_id}">
                             <div>
                                 <div class="gpu-name">${gpu.gpu_model} (${gpu.vram_gb}GB)</div>
-                                <div class="gpu-details">${gpu.country} &bull; Reliability: ${gpu.reliability}%</div>
+                                <div class="gpu-meta">${gpu.country} &bull; ${gpu.reliability}% reliable ${badge}</div>
                             </div>
                             <div style="text-align:right">
                                 <div class="gpu-price">$${gpu.price_per_hour}/hr</div>
-                                <div class="gpu-details">\u20B9${gpu.price_inr_per_hour}/hr</div>
+                                <div class="gpu-price-inr">&#8377;${gpu.price_inr_per_hour}/hr</div>
                             </div>
-                        </div>
-                    `).join('');
+                        </div>`;
+                    }).join('');
+                    toast(`Found ${data.gpus.length} GPUs`, 'success');
                 })
                 .catch(err => {
-                    btn.textContent = 'Search Available GPUs';
                     btn.disabled = false;
-                    alert('Error: ' + err.message);
+                    btn.innerHTML = 'Search Available GPUs';
+                    toast('GPU search failed: ' + err.message, 'error');
+                    grid.innerHTML = '';
+                    document.getElementById('gpu-empty').style.display = 'block';
                 });
         }
 
@@ -334,142 +714,216 @@
             selectedGpuPrice = price;
             document.querySelectorAll('.gpu-card').forEach(c => c.classList.remove('selected'));
             el.classList.add('selected');
-            updateCostEstimate();
+            updateCost();
         }
 
-        function updateCostEstimate() {
+        /* Cost calculation */
+        function updateCost() {
             const duration = parseInt(document.getElementById('duration').value);
             const resolution = document.getElementById('resolution').value;
-            const el = document.getElementById('cost-estimate');
 
             if (!selectedGpuPrice) {
-                el.innerHTML = '<strong>Estimated cost:</strong> Select a GPU first';
+                document.getElementById('cost-amount').textContent = '—';
+                document.getElementById('cost-details').textContent = 'Select a GPU to see cost estimate';
+                document.getElementById('cost-tag').style.display = 'none';
                 return;
             }
 
             const clips = Math.ceil(duration / 5);
-            const timePerClip = resolution === '720p' ? 5 : 2.5; // minutes
-            const totalHours = (clips * timePerClip + 15) / 60; // +15 min for setup
+            const timePerClip = resolution === '720p' ? 5 : 2.5;
+            const totalMin = clips * timePerClip + 15;
+            const totalHours = totalMin / 60;
             const costUSD = (totalHours * selectedGpuPrice).toFixed(2);
-            const costINR = (costUSD * 84).toFixed(0);
+            const costINR = Math.round(costUSD * 84);
 
-            el.innerHTML = `<strong>Estimated cost:</strong> $${costUSD} (~\u20B9${costINR}) &bull; ${clips} clips &bull; ~${(totalHours * 60).toFixed(0)} min total`;
+            document.getElementById('cost-amount').textContent = `$${costUSD} (~₹${costINR})`;
+            document.getElementById('cost-details').textContent = `${clips} clips × ${timePerClip} min + 15 min setup = ~${Math.round(totalMin)} min total`;
+
+            const tag = document.getElementById('cost-tag');
+            tag.style.display = 'inline-block';
+            if (costINR <= 100) {
+                tag.className = 'cost-tag budget';
+                tag.textContent = 'Under ₹100 budget';
+            } else if (costINR <= 200) {
+                tag.className = 'cost-tag moderate';
+                tag.textContent = '₹' + costINR;
+            } else {
+                tag.className = 'cost-tag moderate';
+                tag.textContent = '₹' + costINR;
+            }
         }
 
-        document.getElementById('duration').addEventListener('change', updateCostEstimate);
-        document.getElementById('resolution').addEventListener('change', updateCostEstimate);
-
+        /* Generation */
         function startGeneration() {
             const prompt = document.getElementById('prompt').value.trim();
-            if (!prompt) { alert('Please enter a video description'); return; }
+            if (!prompt) {
+                toast('Please enter a video description', 'error');
+                document.getElementById('prompt').focus();
+                return;
+            }
 
             const btn = document.getElementById('btn-generate');
             btn.disabled = true;
-            btn.textContent = 'Starting...';
-
-            const body = {
-                prompt: prompt,
-                duration: parseInt(document.getElementById('duration').value),
-                resolution: document.getElementById('resolution').value,
-                offer_id: selectedOfferId,
-            };
+            btn.innerHTML = '<span class="spinner"></span> Starting...';
 
             fetch('/api/generate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body),
+                body: JSON.stringify({
+                    prompt: prompt,
+                    duration: parseInt(document.getElementById('duration').value),
+                    resolution: document.getElementById('resolution').value,
+                    offer_id: selectedOfferId,
+                }),
             })
             .then(r => r.json())
             .then(data => {
                 if (data.error) {
-                    alert(data.error);
+                    toast(data.error, 'error');
                     btn.disabled = false;
-                    btn.textContent = 'Generate Video';
+                    btn.innerHTML = 'Generate Video';
                     return;
                 }
                 currentJobId = data.job_id;
-                document.getElementById('progress-section').style.display = 'block';
-                document.getElementById('result-section').style.display = 'none';
+                document.getElementById('progress-card').classList.add('visible');
+                document.getElementById('result-card').classList.remove('visible');
+                toast('Generation started!', 'success');
                 startPolling();
             })
             .catch(err => {
-                alert('Error: ' + err.message);
+                toast('Failed to start: ' + err.message, 'error');
                 btn.disabled = false;
-                btn.textContent = 'Generate Video';
+                btn.innerHTML = 'Generate Video';
             });
         }
 
         function startPolling() {
             if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(() => {
+                if (!currentJobId) return;
                 fetch(`/api/job/${currentJobId}`)
                     .then(r => r.json())
                     .then(job => {
-                        const bar = document.getElementById('progress-bar');
-                        const msg = document.getElementById('status-msg');
-                        bar.style.width = job.progress + '%';
-                        bar.textContent = job.progress + '%';
-                        msg.textContent = job.message;
+                        const fill = document.getElementById('progress-fill');
+                        const msg = document.getElementById('progress-msg');
+                        const pct = document.getElementById('pct-display');
+                        fill.style.width = job.progress + '%';
+                        pct.textContent = job.progress + '%';
+                        msg.textContent = job.message || 'Working...';
+
+                        updateProgressSteps(job);
 
                         if (job.status === 'completed') {
                             clearInterval(pollInterval);
-                            document.getElementById('result-section').style.display = 'block';
+                            document.getElementById('result-card').classList.add('visible');
                             document.getElementById('result-video').src = `/api/download/${currentJobId}`;
                             document.getElementById('download-link').href = `/api/download/${currentJobId}`;
                             document.getElementById('btn-generate').disabled = false;
-                            document.getElementById('btn-generate').textContent = 'Generate Another Video';
+                            document.getElementById('btn-generate').innerHTML = 'Generate Video';
+                            toast('Video ready! Download below.', 'success');
                         } else if (job.status === 'error') {
                             clearInterval(pollInterval);
-                            msg.style.color = '#f87171';
+                            msg.style.color = 'var(--danger)';
                             document.getElementById('btn-generate').disabled = false;
-                            document.getElementById('btn-generate').textContent = 'Try Again';
+                            document.getElementById('btn-generate').innerHTML = 'Try Again';
+                            toast(job.message || 'Generation failed', 'error');
                         }
                     });
-            }, 5000);
+            }, 3000);
         }
 
+        function updateProgressSteps(job) {
+            const steps = ['ps-gpu', 'ps-gen', 'ps-dl', 'ps-merge'];
+            steps.forEach(s => {
+                document.getElementById(s).className = 'progress-step';
+            });
+
+            if (job.status === 'starting' || job.status === 'provisioning') {
+                document.getElementById('ps-gpu').className = 'progress-step active';
+            } else if (job.status === 'generating') {
+                document.getElementById('ps-gpu').className = 'progress-step done';
+                document.getElementById('ps-gen').className = 'progress-step active';
+            } else if (job.progress >= 90 && job.progress < 95) {
+                document.getElementById('ps-gpu').className = 'progress-step done';
+                document.getElementById('ps-gen').className = 'progress-step done';
+                document.getElementById('ps-dl').className = 'progress-step active';
+            } else if (job.progress >= 95 && job.status !== 'completed') {
+                document.getElementById('ps-gpu').className = 'progress-step done';
+                document.getElementById('ps-gen').className = 'progress-step done';
+                document.getElementById('ps-dl').className = 'progress-step done';
+                document.getElementById('ps-merge').className = 'progress-step active';
+            } else if (job.status === 'completed') {
+                steps.forEach(s => document.getElementById(s).className = 'progress-step done');
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('progress-card').classList.remove('visible');
+            document.getElementById('result-card').classList.remove('visible');
+            document.getElementById('progress-fill').style.width = '0%';
+            document.getElementById('pct-display').textContent = '0%';
+            document.getElementById('progress-msg').textContent = 'Starting...';
+            document.getElementById('progress-msg').style.color = '';
+            document.getElementById('btn-generate').disabled = false;
+            document.getElementById('btn-generate').innerHTML = 'Generate Video';
+            currentJobId = null;
+        }
+
+        /* Jobs */
         function refreshJobs() {
             fetch('/api/jobs')
                 .then(r => r.json())
                 .then(data => {
                     const list = document.getElementById('jobs-list');
+                    const empty = document.getElementById('jobs-empty');
+                    document.getElementById('job-count').textContent = data.jobs ? data.jobs.length : 0;
+
                     if (!data.jobs || data.jobs.length === 0) {
-                        list.innerHTML = '<p style="color:#666; font-size:0.9rem;">No jobs yet</p>';
+                        list.innerHTML = '';
+                        empty.style.display = 'block';
                         return;
                     }
+                    empty.style.display = 'none';
                     list.innerHTML = data.jobs.reverse().map(job => `
-                        <div class="job-item">
+                        <div class="job-row">
                             <div>
-                                <div style="font-weight:500; font-size:0.9rem">${job.prompt.substring(0, 60)}...</div>
-                                <div style="color:#888; font-size:0.8rem">${job.duration}s &bull; ${job.resolution}</div>
+                                <div class="job-prompt">${job.prompt.substring(0, 80)}${job.prompt.length > 80 ? '...' : ''}</div>
+                                <div class="job-meta">${job.duration}s &bull; ${job.resolution} &bull; ${new Date(job.created_at * 1000).toLocaleString()}</div>
                             </div>
                             <div style="display:flex; gap:8px; align-items:center">
-                                <span class="job-status ${job.status}">${job.status}</span>
-                                ${job.status === 'completed' ? `<a href="/api/download/${job.id}" class="btn btn-success" style="text-decoration:none">Download</a>` : ''}
+                                <span class="status-badge ${job.status}">${job.status}</span>
+                                ${job.status === 'completed' ? `<a href="/api/download/${job.id}" class="btn btn-success-sm" style="text-decoration:none">Download</a>` : ''}
                             </div>
                         </div>
                     `).join('');
                 });
         }
 
+        /* Instances */
         function refreshInstances() {
             fetch('/api/instances')
                 .then(r => r.json())
                 .then(data => {
                     const list = document.getElementById('instances-list');
-                    if (!data.instances || data.instances.length === 0) {
-                        list.innerHTML = '<p style="color:#4ade80; font-size:0.9rem;">No running instances (no cost)</p>';
+                    const empty = document.getElementById('instances-empty');
+                    const count = data.instances ? data.instances.length : 0;
+                    document.getElementById('instance-count').textContent = count;
+
+                    if (count === 0) {
+                        list.innerHTML = '';
+                        empty.style.display = 'block';
                         return;
                     }
+                    empty.style.display = 'none';
                     list.innerHTML = data.instances.map(inst => `
-                        <div class="job-item">
+                        <div class="inst-row">
                             <div>
-                                <div style="font-weight:500">${inst.gpu_name || 'GPU'} #${inst.id}</div>
-                                <div style="color:#888; font-size:0.8rem">$${(inst.dph_total || 0).toFixed(3)}/hr</div>
+                                <div class="inst-info">${inst.gpu_name || 'GPU'} #${inst.id}</div>
+                                <div class="inst-meta">$${(inst.dph_total || 0).toFixed(3)}/hr &bull; Status: ${inst.actual_status || 'unknown'}</div>
                             </div>
-                            <div style="display:flex; gap:8px">
-                                <button class="btn btn-danger" onclick="stopInst(${inst.id})">Stop</button>
-                                <button class="btn btn-danger" onclick="destroyInst(${inst.id})">Destroy</button>
+                            <div class="inst-actions">
+                                <button class="btn btn-outline" style="font-size:12px; padding:6px 10px" onclick="stopInst(${inst.id})">Stop</button>
+                                <button class="btn btn-danger-sm" onclick="destroyInst(${inst.id})">Destroy</button>
                             </div>
                         </div>
                     `).join('');
@@ -477,22 +931,54 @@
         }
 
         function stopInst(id) {
-            if (!confirm('Stop this instance? (Data preserved, billing stops)')) return;
+            if (!confirm('Stop this instance? (Data preserved, GPU billing stops)')) return;
             fetch('/api/stop-instance', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({instance_id: id}),
-            }).then(() => refreshInstances());
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) toast(data.error, 'error');
+                else toast('Instance stopped', 'success');
+                refreshInstances();
+            });
         }
 
         function destroyInst(id) {
-            if (!confirm('DESTROY this instance? All data will be DELETED!')) return;
+            if (!confirm('DESTROY this instance? All data will be permanently deleted.')) return;
             fetch('/api/destroy-instance', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({instance_id: id}),
-            }).then(() => refreshInstances());
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) toast(data.error, 'error');
+                else toast('Instance destroyed', 'success');
+                refreshInstances();
+            });
         }
+
+        /* Settings */
+        function checkApiKey() {
+            fetch('/api/health')
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('api-key-status');
+                    if (data.vastai_configured) {
+                        el.innerHTML = '<span style="color:var(--success)">&#10003; API key configured</span>';
+                    } else {
+                        el.innerHTML = '<span style="color:var(--danger)">&#10007; API key not set. Run: vastai set api-key YOUR_KEY</span>';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('api-key-status').innerHTML = '<span style="color:var(--danger)">Cannot connect to server</span>';
+                });
+        }
+
+        /* Init */
+        checkApiKey();
     </script>
 </body>
 </html>

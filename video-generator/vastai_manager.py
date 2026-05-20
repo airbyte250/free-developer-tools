@@ -8,9 +8,22 @@ import time
 def run_vastai(*args):
     """Run a vastai CLI command and return the output."""
     cmd = ["vastai"] + list(args)
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except FileNotFoundError:
+        raise RuntimeError(
+            "vastai CLI not found. Install it: pip install vastai"
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Vast.ai command timed out after 120s")
+
     if result.returncode != 0:
-        raise RuntimeError(f"vastai command failed: {result.stderr}")
+        err_msg = result.stderr.strip()
+        if "api_key" in err_msg.lower() or "unauthorized" in err_msg.lower():
+            raise RuntimeError(
+                "Vast.ai API key not set or invalid. Run: vastai set api-key YOUR_KEY"
+            )
+        raise RuntimeError(f"Vast.ai command failed: {err_msg[:300]}")
     return result.stdout.strip()
 
 
@@ -28,7 +41,12 @@ def search_cheapest_gpu(min_vram_gb=20, gpu_name=None):
         "--raw",
         query,
     )
-    offers = json.loads(raw)
+    if not raw:
+        return None
+    try:
+        offers = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
     if not offers:
         return None
     return offers[0]
@@ -42,7 +60,6 @@ def create_instance(offer_id, disk_gb=80):
         "--disk", str(disk_gb),
         "--ssh", "--direct",
     )
-    # Extract instance ID from output
     for word in output.split():
         if word.isdigit():
             return int(word)
@@ -54,21 +71,26 @@ def wait_for_instance(instance_id, timeout=600):
     start = time.time()
     while time.time() - start < timeout:
         raw = run_vastai("show", "instances", "--raw")
-        instances = json.loads(raw)
+        try:
+            instances = json.loads(raw)
+        except json.JSONDecodeError:
+            time.sleep(15)
+            continue
         for inst in instances:
             if inst.get("id") == instance_id:
                 status = inst.get("actual_status", "")
                 if status == "running":
                     ssh_host = inst.get("ssh_host", "")
                     ssh_port = inst.get("ssh_port", 22)
-                    return {
-                        "id": instance_id,
-                        "ssh_host": ssh_host,
-                        "ssh_port": ssh_port,
-                        "status": status,
-                        "gpu_name": inst.get("gpu_name", "Unknown"),
-                        "dph_total": inst.get("dph_total", 0),
-                    }
+                    if ssh_host:
+                        return {
+                            "id": instance_id,
+                            "ssh_host": ssh_host,
+                            "ssh_port": ssh_port,
+                            "status": status,
+                            "gpu_name": inst.get("gpu_name", "Unknown"),
+                            "dph_total": inst.get("dph_total", 0),
+                        }
         time.sleep(15)
     raise TimeoutError(f"Instance {instance_id} did not start within {timeout}s")
 
@@ -86,7 +108,12 @@ def destroy_instance(instance_id):
 def get_running_instances():
     """Get list of running instances."""
     raw = run_vastai("show", "instances", "--raw")
-    instances = json.loads(raw)
+    if not raw:
+        return []
+    try:
+        instances = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
     return [i for i in instances if i.get("actual_status") == "running"]
 
 

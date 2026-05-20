@@ -22,13 +22,26 @@ app = Flask(__name__)
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# In-memory job tracking
 jobs = {}
 
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/health")
+def health():
+    """Health check — reports API key status and system readiness."""
+    api_key_path = os.path.expanduser("~/.config/vastai/vast_api_key")
+    vastai_configured = os.path.exists(api_key_path)
+    return jsonify({
+        "status": "ok",
+        "vastai_configured": vastai_configured,
+        "output_dir": OUTPUT_DIR,
+        "active_jobs": sum(1 for j in jobs.values() if j["status"] in ("starting", "provisioning", "generating")),
+        "total_jobs": len(jobs),
+    })
 
 
 @app.route("/api/gpu-options")
@@ -74,20 +87,23 @@ def list_instances():
 @app.route("/api/generate", methods=["POST"])
 def generate_video():
     """Start video generation job."""
-    data = request.json
-    prompt = data.get("prompt", "")
-    duration = int(data.get("duration", 30))
+    data = request.json or {}
+    prompt = data.get("prompt", "").strip()
+    duration = int(data.get("duration", 300))
     resolution = data.get("resolution", "480p")
     offer_id = data.get("offer_id")
 
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
 
-    height = 480
-    width = 832
-    if resolution == "720p":
-        height = 720
-        width = 1280
+    if duration not in (10, 30, 60, 150, 300):
+        return jsonify({"error": "Invalid duration"}), 400
+
+    if resolution not in ("480p", "720p"):
+        return jsonify({"error": "Invalid resolution"}), 400
+
+    height = 480 if resolution == "480p" else 720
+    width = 832 if resolution == "480p" else 1280
 
     job_id = str(uuid.uuid4())[:8]
     job = {
@@ -120,41 +136,42 @@ def _run_generation(job_id, prompt, duration, height, width, offer_id):
     instance_id = None
 
     try:
-        # Find cheapest GPU if no offer specified
         if not offer_id:
             job["message"] = "Searching for cheapest GPU..."
             offer = search_cheapest_gpu(min_vram_gb=20)
             if not offer:
                 job["status"] = "error"
-                job["message"] = "No GPUs available. Try again later."
+                job["message"] = "No GPUs available right now. Try again in a few minutes."
                 return
             offer_id = offer["id"]
             job["cost_estimate"] = round(offer.get("dph_total", 0) * (duration / 60) * 3, 2)
 
-        # Create instance
-        job["message"] = "Starting GPU instance..."
+        job["message"] = "Renting GPU instance..."
         job["status"] = "provisioning"
+        job["progress"] = 5
         instance_id = create_instance(offer_id, disk_gb=80)
         job["instance_id"] = instance_id
 
-        # Wait for instance
         job["message"] = "Waiting for GPU to boot (1-3 min)..."
+        job["progress"] = 10
         info = wait_for_instance(instance_id, timeout=600)
         ssh_host = info["ssh_host"]
         ssh_port = info["ssh_port"]
-        job["message"] = f"GPU ready: {info['gpu_name']} @ ${info['dph_total']:.2f}/hr"
+        job["message"] = f"GPU ready: {info['gpu_name']}"
+        job["progress"] = 15
 
-        # Generate video
         job["status"] = "generating"
         output_path = os.path.join(OUTPUT_DIR, f"{job_id}_final.mp4")
 
         def on_progress(stage, current, total, message):
             job["message"] = message
             if total > 0:
-                if stage == "generating":
-                    job["progress"] = int((current / total) * 90)
+                if stage == "setup":
+                    job["progress"] = 20
+                elif stage == "generating":
+                    job["progress"] = 20 + int((current / total) * 65)
                 elif stage == "downloading":
-                    job["progress"] = 90
+                    job["progress"] = 88
                 elif stage == "merging":
                     job["progress"] = 95
                 elif stage == "done":
@@ -175,11 +192,11 @@ def _run_generation(job_id, prompt, duration, height, width, offer_id):
         job["status"] = "error"
         job["message"] = f"Error: {str(e)}"
     finally:
-        # Auto-stop instance to save cost
         if instance_id:
             try:
                 stop_instance(instance_id)
-                job["message"] += " (GPU stopped to save cost)"
+                if job["status"] == "completed":
+                    job["message"] = "Video ready! GPU auto-stopped."
             except Exception:
                 pass
 
@@ -197,8 +214,10 @@ def job_status(job_id):
 def download_video(job_id):
     """Download the generated video."""
     job = jobs.get(job_id)
-    if not job or not job.get("output_path"):
-        return jsonify({"error": "Video not ready"}), 404
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    if not job.get("output_path") or not os.path.exists(job.get("output_path", "")):
+        return jsonify({"error": "Video not ready yet"}), 404
     return send_file(job["output_path"], as_attachment=True,
                      download_name=f"video_{job_id}.mp4")
 
@@ -206,13 +225,13 @@ def download_video(job_id):
 @app.route("/api/stop-instance", methods=["POST"])
 def stop_instance_api():
     """Manually stop a Vast.ai instance."""
-    data = request.json
+    data = request.json or {}
     instance_id = data.get("instance_id")
     if not instance_id:
         return jsonify({"error": "instance_id required"}), 400
     try:
         stop_instance(instance_id)
-        return jsonify({"status": "stopped"})
+        return jsonify({"status": "stopped", "instance_id": instance_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -220,13 +239,13 @@ def stop_instance_api():
 @app.route("/api/destroy-instance", methods=["POST"])
 def destroy_instance_api():
     """Manually destroy a Vast.ai instance."""
-    data = request.json
+    data = request.json or {}
     instance_id = data.get("instance_id")
     if not instance_id:
         return jsonify({"error": "instance_id required"}), 400
     try:
         destroy_instance(instance_id)
-        return jsonify({"status": "destroyed"})
+        return jsonify({"status": "destroyed", "instance_id": instance_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

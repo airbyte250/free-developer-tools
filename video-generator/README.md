@@ -1,96 +1,83 @@
-# AI Video Generator - Wan 2.2 on Vast.ai
+# VideoForge AI — Wan 2.2 Video Generator
 
-Generate 5-minute AI videos for ~₹100 using open-source Wan 2.2 model on rented GPUs.
+Generate 5-minute AI videos for ~₹100 using open-source Wan 2.2 on rented cloud GPUs.
 
-## How it Works
+## How It Works
 
-1. **Web Dashboard** — Enter a prompt, pick duration and quality
-2. **Auto GPU Rental** — Finds the cheapest RTX 4090/3090 on Vast.ai
-3. **Auto Setup** — Installs Wan 2.2 on the GPU instance automatically
-4. **Clip Generation** — Generates 5-sec clips sequentially
-5. **Auto Merge** — Merges all clips into one video via FFmpeg
-6. **Auto Stop** — Stops the GPU instance when done to save cost
-
-## Cost Breakdown
-
-| Duration | Clips | GPU (RTX 3090 @ $0.20/hr) | GPU (RTX 4090 @ $0.40/hr) |
-|----------|-------|---------------------------|---------------------------|
-| 30 sec   | 6     | ~$0.10 (~₹8)              | ~$0.20 (~₹17)             |
-| 1 min    | 12    | ~$0.20 (~₹17)             | ~$0.40 (~₹34)             |
-| 5 min    | 60    | ~$0.80 (~₹67)             | ~$1.60 (~₹134)            |
-
-*Using Wan 2.2 1.3B model at 480p resolution. Times and costs are approximate.*
+1. **Rent cheapest GPU** — Auto-finds cheapest RTX 3090/4090 on Vast.ai marketplace
+2. **Auto-install Wan 2.2** — Sets up the 1.3B model on the GPU instance via SSH
+3. **Generate clips** — Creates 5-sec video clips from your text prompt
+4. **Merge & deliver** — FFmpeg merges clips into final video, auto-stops GPU
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.9+
-- [Vast.ai](https://vast.ai) account with credit
-- Vast.ai API key (generate at https://cloud.vast.ai/manage-keys/)
-
-### Setup
-
 ```bash
-# Install dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
-pip install vastai
 
-# Set your Vast.ai API key
+# 2. Set Vast.ai API key
+pip install vastai
 vastai set api-key YOUR_API_KEY
 
-# Run the web app
+# 3. Install FFmpeg (if not already installed)
+# Ubuntu: sudo apt install ffmpeg
+# Mac: brew install ffmpeg
+
+# 4. Start server
 python app.py
 ```
 
-Open http://localhost:5000 in your browser.
+Open **http://localhost:5000** → Search GPUs → Write prompt → Generate!
 
-### Usage
+## Cost Breakdown
 
-1. Click **Search Available GPUs** to find the cheapest option
-2. Select a GPU from the list
-3. Type your video prompt
-4. Choose duration (start with 10s for testing!)
-5. Click **Generate Video**
-6. Wait for clips to generate (progress bar shows status)
-7. Download the final merged video
-
-### Instance Management
-
-- The app **auto-stops** instances after video generation
-- Use the **GPU Instance Management** section to manually stop/destroy instances
-- **Stop** = pause billing, data preserved
-- **Destroy** = delete everything, no more charges
+| GPU | Price/hr | 5 min video (480p) | 5 min video (720p) |
+|-----|----------|-------------------|-------------------|
+| RTX 3090 | ~$0.15/hr (~₹13) | ~₹40-65 | ~₹80-130 |
+| RTX 4090 | ~$0.35/hr (~₹29) | ~₹90-140 | ~₹175-280 |
 
 ## Architecture
 
 ```
-┌──────────────┐     ┌───────────────┐     ┌──────────────────┐
-│  Web Browser │────▶│  Flask Server │────▶│  Vast.ai API     │
-│  (Dashboard) │◀────│  (app.py)     │◀────│  (GPU Instance)  │
-└──────────────┘     └───────────────┘     └──────────────────┘
-                            │                       │
-                            │   SSH / SFTP          │
-                            │◀──────────────────────│
-                            │                       │
-                     ┌──────▼──────┐     ┌──────────▼─────────┐
-                     │  FFmpeg     │     │  Wan 2.2 1.3B      │
-                     │  (merge)    │     │  (video generation) │
-                     └─────────────┘     └────────────────────┘
+Browser → Flask API → Vast.ai CLI → GPU Instance (SSH)
+                                          ↓
+                                    Wan 2.2 1.3B
+                                          ↓
+                                    5-sec clips
+                                          ↓
+                              Download → FFmpeg merge
+                                          ↓
+                                    Final video
 ```
 
 ## Files
 
-- `app.py` — Flask web server with REST API and web UI
-- `vastai_manager.py` — Vast.ai CLI wrapper (search, create, stop, destroy)
-- `video_pipeline.py` — Video generation pipeline (SSH, generate, download, merge)
-- `setup_instance.sh` — Auto-setup script for GPU instances (installs Wan 2.2)
-- `templates/index.html` — Web dashboard UI
-- `outputs/` — Generated videos stored here
+| File | Description |
+|------|-------------|
+| `app.py` | Flask web server with REST API |
+| `vastai_manager.py` | Vast.ai CLI wrapper (search, create, stop, destroy) |
+| `video_pipeline.py` | SSH-based clip generation + FFmpeg merge |
+| `setup_instance.sh` | Auto-setup script for Wan 2.2 on GPU instances |
+| `templates/index.html` | Web dashboard (sidebar navigation, multi-page) |
+| `requirements.txt` | Python dependencies |
 
-## Tips
+## API Endpoints
 
-- **Start small:** Test with 10-sec video first to verify everything works
-- **480p is cheaper:** Use 480p for drafts, 720p for final versions
-- **Check instances:** Always verify no instances are running after you're done
-- **RTX 3090 is cheapest:** ~$0.15-0.20/hr, good enough for 1.3B model
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check + API key status |
+| GET | `/api/gpu-options` | Search cheapest GPUs on Vast.ai |
+| POST | `/api/generate` | Start video generation job |
+| GET | `/api/job/<id>` | Get job status and progress |
+| GET | `/api/download/<id>` | Download completed video |
+| GET | `/api/instances` | List running GPU instances |
+| POST | `/api/stop-instance` | Stop a GPU instance |
+| POST | `/api/destroy-instance` | Destroy a GPU instance |
+| GET | `/api/jobs` | List all generation jobs |
+
+## Requirements
+
+- Python 3.10+
+- FFmpeg
+- Vast.ai account with API key
+- $5-10 Vast.ai credit to start
