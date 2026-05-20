@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Generator - Wan 2.2 on Vast.ai</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin: 30px 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+        .card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2a4a;
+        }
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+            color: #a78bfa;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+        textarea, select, input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            background: #16162a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 1rem;
+            margin-bottom: 16px;
+            resize: vertical;
+        }
+        textarea:focus, select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .row { display: flex; gap: 16px; }
+        .row > div { flex: 1; }
+        .btn {
+            display: inline-block;
+            padding: 12px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            width: 100%;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-bar-bg {
+            background: #2a2a4a;
+            border-radius: 10px;
+            height: 24px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            min-width: 30px;
+        }
+        .status-msg {
+            color: #aaa;
+            font-size: 0.9rem;
+            text-align: center;
+            margin: 8px 0;
+        }
+        .cost-info {
+            background: #1e1e3a;
+            border-left: 3px solid #667eea;
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+        }
+        .cost-info strong { color: #a78bfa; }
+        .gpu-list {
+            display: grid;
+            gap: 10px;
+        }
+        .gpu-card {
+            background: #16162a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .gpu-card:hover { border-color: #667eea; }
+        .gpu-card.selected { border-color: #667eea; background: #1e1e3a; }
+        .gpu-name { font-weight: 600; }
+        .gpu-price { color: #a78bfa; font-size: 0.9rem; }
+        .gpu-details { color: #888; font-size: 0.8rem; }
+        .video-result {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .video-result video {
+            max-width: 100%;
+            border-radius: 12px;
+            margin: 16px 0;
+        }
+        .jobs-list { margin-top: 10px; }
+        .job-item {
+            background: #16162a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .job-status {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .job-status.generating { background: #2563eb33; color: #60a5fa; }
+        .job-status.completed { background: #16a34a33; color: #4ade80; }
+        .job-status.error { background: #dc262633; color: #f87171; }
+        .job-status.starting, .job-status.provisioning { background: #d9770633; color: #fbbf24; }
+        .footer {
+            text-align: center;
+            color: #555;
+            padding: 30px 0;
+            font-size: 0.8rem;
+        }
+        @media (max-width: 600px) {
+            .row { flex-direction: column; gap: 0; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Video Generator</h1>
+        <p class="subtitle">Wan 2.2 on Vast.ai GPU Cloud &mdash; 5 min video for ~&#8377;100</p>
+
+        <!-- GPU Selection -->
+        <div class="card" id="gpu-section">
+            <h2>1. Select GPU</h2>
+            <button class="btn btn-primary" id="btn-search-gpu" onclick="searchGPUs()">
+                Search Available GPUs
+            </button>
+            <div id="gpu-list" class="gpu-list" style="display:none; margin-top:16px;"></div>
+        </div>
+
+        <!-- Prompt & Settings -->
+        <div class="card">
+            <h2>2. Video Settings</h2>
+            <label for="prompt">Describe your video</label>
+            <textarea id="prompt" rows="4"
+                placeholder="A cinematic aerial shot of mountains at golden hour, with clouds rolling through valleys and sunlight casting long shadows..."></textarea>
+
+            <div class="row">
+                <div>
+                    <label for="duration">Duration (seconds)</label>
+                    <select id="duration">
+                        <option value="10">10 sec (2 clips) ~ test</option>
+                        <option value="30">30 sec (6 clips)</option>
+                        <option value="60">1 min (12 clips)</option>
+                        <option value="150">2.5 min (30 clips)</option>
+                        <option value="300">5 min (60 clips)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="resolution">Resolution</label>
+                    <select id="resolution">
+                        <option value="480p">480p (faster, cheaper)</option>
+                        <option value="720p">720p (better quality)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="cost-info" id="cost-estimate">
+                <strong>Estimated cost:</strong> Select a GPU and duration to see estimate
+            </div>
+
+            <button class="btn btn-primary" id="btn-generate" onclick="startGeneration()">
+                Generate Video
+            </button>
+        </div>
+
+        <!-- Progress -->
+        <div class="card progress-container" id="progress-section">
+            <h2>3. Generation Progress</h2>
+            <div class="progress-bar-bg">
+                <div class="progress-bar" id="progress-bar" style="width: 0%">0%</div>
+            </div>
+            <p class="status-msg" id="status-msg">Starting...</p>
+        </div>
+
+        <!-- Result -->
+        <div class="card video-result" id="result-section">
+            <h2>Your Video is Ready!</h2>
+            <video id="result-video" controls></video>
+            <a id="download-link" class="btn btn-success" download>Download Video</a>
+        </div>
+
+        <!-- Jobs History -->
+        <div class="card">
+            <h2>Job History</h2>
+            <button class="btn btn-primary" style="padding:8px 16px; font-size:0.85rem; width:auto; margin-bottom:12px" onclick="refreshJobs()">
+                Refresh
+            </button>
+            <div id="jobs-list" class="jobs-list">
+                <p style="color:#666; font-size:0.9rem;">No jobs yet</p>
+            </div>
+        </div>
+
+        <!-- Instance Management -->
+        <div class="card">
+            <h2>GPU Instance Management</h2>
+            <p style="color:#888; font-size:0.85rem; margin-bottom:12px;">
+                Running instances cost money. Stop them when done!
+            </p>
+            <button class="btn btn-primary" style="padding:8px 16px; font-size:0.85rem; width:auto; margin-bottom:12px" onclick="refreshInstances()">
+                Check Running Instances
+            </button>
+            <div id="instances-list"></div>
+        </div>
+
+        <div class="footer">
+            Powered by Wan 2.2 (Open Source) + Vast.ai GPU Cloud
+        </div>
+    </div>
+
+    <script>
+        let selectedOfferId = null;
+        let selectedGpuPrice = 0;
+        let currentJobId = null;
+        let pollInterval = null;
+
+        function searchGPUs() {
+            const btn = document.getElementById('btn-search-gpu');
+            btn.disabled = true;
+            btn.textContent = 'Searching...';
+
+            fetch('/api/gpu-options')
+                .then(r => r.json())
+                .then(data => {
+                    btn.textContent = 'Refresh GPU List';
+                    btn.disabled = false;
+                    const list = document.getElementById('gpu-list');
+                    list.style.display = 'grid';
+                    if (data.error) {
+                        list.innerHTML = `<p style="color:#f87171">${data.error}</p>`;
+                        return;
+                    }
+                    list.innerHTML = data.gpus.map(gpu => `
+                        <div class="gpu-card" onclick="selectGPU('${gpu.offer_id}', ${gpu.price_per_hour}, this)">
+                            <div>
+                                <div class="gpu-name">${gpu.gpu_model} (${gpu.vram_gb}GB)</div>
+                                <div class="gpu-details">${gpu.country} &bull; Reliability: ${gpu.reliability}%</div>
+                            </div>
+                            <div style="text-align:right">
+                                <div class="gpu-price">$${gpu.price_per_hour}/hr</div>
+                                <div class="gpu-details">\u20B9${gpu.price_inr_per_hour}/hr</div>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(err => {
+                    btn.textContent = 'Search Available GPUs';
+                    btn.disabled = false;
+                    alert('Error: ' + err.message);
+                });
+        }
+
+        function selectGPU(offerId, price, el) {
+            selectedOfferId = offerId;
+            selectedGpuPrice = price;
+            document.querySelectorAll('.gpu-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            updateCostEstimate();
+        }
+
+        function updateCostEstimate() {
+            const duration = parseInt(document.getElementById('duration').value);
+            const resolution = document.getElementById('resolution').value;
+            const el = document.getElementById('cost-estimate');
+
+            if (!selectedGpuPrice) {
+                el.innerHTML = '<strong>Estimated cost:</strong> Select a GPU first';
+                return;
+            }
+
+            const clips = Math.ceil(duration / 5);
+            const timePerClip = resolution === '720p' ? 5 : 2.5; // minutes
+            const totalHours = (clips * timePerClip + 15) / 60; // +15 min for setup
+            const costUSD = (totalHours * selectedGpuPrice).toFixed(2);
+            const costINR = (costUSD * 84).toFixed(0);
+
+            el.innerHTML = `<strong>Estimated cost:</strong> $${costUSD} (~\u20B9${costINR}) &bull; ${clips} clips &bull; ~${(totalHours * 60).toFixed(0)} min total`;
+        }
+
+        document.getElementById('duration').addEventListener('change', updateCostEstimate);
+        document.getElementById('resolution').addEventListener('change', updateCostEstimate);
+
+        function startGeneration() {
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) { alert('Please enter a video description'); return; }
+
+            const btn = document.getElementById('btn-generate');
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+
+            const body = {
+                prompt: prompt,
+                duration: parseInt(document.getElementById('duration').value),
+                resolution: document.getElementById('resolution').value,
+                offer_id: selectedOfferId,
+            };
+
+            fetch('/api/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    btn.disabled = false;
+                    btn.textContent = 'Generate Video';
+                    return;
+                }
+                currentJobId = data.job_id;
+                document.getElementById('progress-section').style.display = 'block';
+                document.getElementById('result-section').style.display = 'none';
+                startPolling();
+            })
+            .catch(err => {
+                alert('Error: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'Generate Video';
+            });
+        }
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(() => {
+                fetch(`/api/job/${currentJobId}`)
+                    .then(r => r.json())
+                    .then(job => {
+                        const bar = document.getElementById('progress-bar');
+                        const msg = document.getElementById('status-msg');
+                        bar.style.width = job.progress + '%';
+                        bar.textContent = job.progress + '%';
+                        msg.textContent = job.message;
+
+                        if (job.status === 'completed') {
+                            clearInterval(pollInterval);
+                            document.getElementById('result-section').style.display = 'block';
+                            document.getElementById('result-video').src = `/api/download/${currentJobId}`;
+                            document.getElementById('download-link').href = `/api/download/${currentJobId}`;
+                            document.getElementById('btn-generate').disabled = false;
+                            document.getElementById('btn-generate').textContent = 'Generate Another Video';
+                        } else if (job.status === 'error') {
+                            clearInterval(pollInterval);
+                            msg.style.color = '#f87171';
+                            document.getElementById('btn-generate').disabled = false;
+                            document.getElementById('btn-generate').textContent = 'Try Again';
+                        }
+                    });
+            }, 5000);
+        }
+
+        function refreshJobs() {
+            fetch('/api/jobs')
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('jobs-list');
+                    if (!data.jobs || data.jobs.length === 0) {
+                        list.innerHTML = '<p style="color:#666; font-size:0.9rem;">No jobs yet</p>';
+                        return;
+                    }
+                    list.innerHTML = data.jobs.reverse().map(job => `
+                        <div class="job-item">
+                            <div>
+                                <div style="font-weight:500; font-size:0.9rem">${job.prompt.substring(0, 60)}...</div>
+                                <div style="color:#888; font-size:0.8rem">${job.duration}s &bull; ${job.resolution}</div>
+                            </div>
+                            <div style="display:flex; gap:8px; align-items:center">
+                                <span class="job-status ${job.status}">${job.status}</span>
+                                ${job.status === 'completed' ? `<a href="/api/download/${job.id}" class="btn btn-success" style="text-decoration:none">Download</a>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                });
+        }
+
+        function refreshInstances() {
+            fetch('/api/instances')
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('instances-list');
+                    if (!data.instances || data.instances.length === 0) {
+                        list.innerHTML = '<p style="color:#4ade80; font-size:0.9rem;">No running instances (no cost)</p>';
+                        return;
+                    }
+                    list.innerHTML = data.instances.map(inst => `
+                        <div class="job-item">
+                            <div>
+                                <div style="font-weight:500">${inst.gpu_name || 'GPU'} #${inst.id}</div>
+                                <div style="color:#888; font-size:0.8rem">$${(inst.dph_total || 0).toFixed(3)}/hr</div>
+                            </div>
+                            <div style="display:flex; gap:8px">
+                                <button class="btn btn-danger" onclick="stopInst(${inst.id})">Stop</button>
+                                <button class="btn btn-danger" onclick="destroyInst(${inst.id})">Destroy</button>
+                            </div>
+                        </div>
+                    `).join('');
+                });
+        }
+
+        function stopInst(id) {
+            if (!confirm('Stop this instance? (Data preserved, billing stops)')) return;
+            fetch('/api/stop-instance', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({instance_id: id}),
+            }).then(() => refreshInstances());
+        }
+
+        function destroyInst(id) {
+            if (!confirm('DESTROY this instance? All data will be DELETED!')) return;
+            fetch('/api/destroy-instance', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({instance_id: id}),
+            }).then(() => refreshInstances());
+        }
+    </script>
+</body>
+</html>
