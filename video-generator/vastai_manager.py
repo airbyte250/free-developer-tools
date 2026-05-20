@@ -5,11 +5,12 @@ import subprocess
 import time
 
 
-def run_vastai(*args):
+def run_vastai(*args, stdin_input=None):
     """Run a vastai CLI command and return the output."""
     cmd = ["vastai"] + list(args)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
+                                input=stdin_input)
     except FileNotFoundError:
         raise RuntimeError(
             "vastai CLI not found. Install it: pip install vastai"
@@ -54,15 +55,22 @@ def search_cheapest_gpu(min_vram_gb=20, gpu_name=None):
 
 def create_instance(offer_id, disk_gb=80):
     """Create a Vast.ai instance with PyTorch image."""
+    import re
     output = run_vastai(
         "create", "instance", str(offer_id),
         "--image", "pytorch/pytorch:2.4.0-cuda12.4-cudnn9-devel",
         "--disk", str(disk_gb),
-        "--ssh", "--direct",
+        "--ssh",
     )
+    # Try new_contract key first (newer CLI format)
+    m = re.search(r"'new_contract':\s*(\d+)", output)
+    if m:
+        return int(m.group(1))
+    # Fall back to any standalone number
     for word in output.split():
-        if word.isdigit():
-            return int(word)
+        digits = word.strip(",.{}[]'\"")
+        if digits.isdigit():
+            return int(digits)
     raise RuntimeError(f"Could not parse instance ID from: {output}")
 
 
@@ -102,7 +110,7 @@ def stop_instance(instance_id):
 
 def destroy_instance(instance_id):
     """Destroy a Vast.ai instance."""
-    run_vastai("destroy", "instance", str(instance_id))
+    run_vastai("destroy", "instance", str(instance_id), stdin_input="y\n")
 
 
 def get_running_instances():
