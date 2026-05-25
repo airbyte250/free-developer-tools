@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id                 String   @id @default(uuid())
+  hostname           String   @unique
+  status             String   @default("active") // active, paused, pending_review
+  categoryId         String   @map("category_id")
+  adClientId         String   @map("ad_client_id") // ca-pub-XXXXXXXXXXXXXXXX
+  bannerSlotId       String   @map("banner_slot_id")
+  interstitialSlotId String   @map("interstitial_slot_id")
+  anchorSlotId       String   @map("anchor_slot_id")
+  analyticsId        String?  @map("analytics_id") // G-XXXXXX
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  category Category @relation(fields: [categoryId], references: [id])
+  adsTxt   AdsTxt[]
+
+  @@map("tenants")
+}
+
+model Category {
+  id              String   @id @default(uuid())
+  slug            String   @unique
+  metaTitle       String   @map("meta_title")
+  metaDescription String   @map("meta_description")
+  quizData        Json     @map("quiz_data")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenants Tenant[]
+
+  @@map("categories")
+}
+
+model AdsTxt {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  line     String // e.g., "google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0"
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("ads_txt")
+}
