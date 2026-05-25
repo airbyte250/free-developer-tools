@@ -1,10 +1,19 @@
 import Link from 'next/link'
+import { verifySession } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { LogoutButton } from '@/components/admin/LogoutButton'
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await verifySession()
+
+  if (!session) {
+    redirect('/admin/login')
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Admin Navigation */}
@@ -29,6 +38,12 @@ export default function AdminLayout({
                   Categories
                 </Link>
               </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">
+                {session.username}
+              </span>
+              <LogoutButton />
             </div>
           </div>
         </div>

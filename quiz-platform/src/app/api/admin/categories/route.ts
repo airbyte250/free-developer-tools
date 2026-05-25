@@ -1,7 +1,11 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest } from 'next/server'
+import { verifyApiAuth } from '@/lib/auth-api'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const categories = await prisma.category.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
@@ -13,6 +17,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json()
 
   const { slug, metaTitle, metaDescription, quizData } = body
@@ -40,6 +48,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json()
   const { id, ...data } = body
 
@@ -61,6 +73,10 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const id = searchParams.get('id')
 

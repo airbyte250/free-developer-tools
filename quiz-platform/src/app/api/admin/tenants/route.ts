@@ -1,8 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import { invalidateTenantCache } from '@/lib/tenant'
 import { NextRequest } from 'next/server'
+import { verifyApiAuth } from '@/lib/auth-api'
 
 export async function GET(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const searchParams = request.nextUrl.searchParams
   const status = searchParams.get('status')
 
@@ -16,6 +20,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json()
 
   const {
@@ -69,6 +77,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json()
   const { id, ...data } = body
 
@@ -106,6 +118,10 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!(await verifyApiAuth(request))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const id = searchParams.get('id')
 
