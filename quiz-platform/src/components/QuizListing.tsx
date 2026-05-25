@@ -46,7 +46,7 @@ export default function QuizListing({ quizzes, categoryTitle, categoryDescriptio
           {quizzes.map((quiz, idx) => (
             <a
               key={quiz.slug}
-              href={`/quiz?q=${quiz.slug}&step=1`}
+              href={`/quiz/${quiz.slug}`}
               className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-lg md:p-6"
             >
               <div className="flex items-start gap-3 md:gap-4">

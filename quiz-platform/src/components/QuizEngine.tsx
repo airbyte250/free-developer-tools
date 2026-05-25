@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import Footer from '@/components/Footer'
 
@@ -36,15 +36,15 @@ interface TenantPayload {
 
 interface QuizEngineProps {
   tenantPayload: TenantPayload | null
+  initialStep?: number
 }
 
-function QuizContent({ tenantPayload }: QuizEngineProps) {
+function QuizContent({ tenantPayload, initialStep = 1 }: QuizEngineProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const currentStep = parseInt(searchParams.get('step') || '1', 10)
+  const currentStep = initialStep === -1 ? 0 : initialStep
+  const isResult = initialStep === -1
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [showResult, setShowResult] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -101,17 +101,16 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
       const nextStep = currentStep + 1
       if (nextStep === 4) {
         setIsAnalyzing(true)
-        router.push(`/quiz?q=${quizSlug}&step=${nextStep}`)
+        router.push(`/quiz/${quizSlug}/${nextStep}`)
         setTimeout(() => {
           setIsAnalyzing(false)
-          router.push(`/quiz?q=${quizSlug}&step=${nextStep + 1}`)
+          router.push(`/quiz/${quizSlug}/${nextStep + 1}`)
         }, 3000)
       } else {
-        router.push(`/quiz?q=${quizSlug}&step=${nextStep}`)
+        router.push(`/quiz/${quizSlug}/${nextStep}`)
       }
     } else {
-      setShowResult(true)
-      router.push(`/quiz?q=${quizSlug}&step=result`)
+      router.push(`/quiz/${quizSlug}/result`)
     }
   }, [currentStep, totalSteps, router, quizSlug])
 
@@ -152,7 +151,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
   }
 
   // Result page with full article below
-  if (showResult || searchParams.get('step') === 'result') {
+  if (isResult) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-16">
         <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
@@ -175,8 +174,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
               <button
                 onClick={() => {
                   setAnswers({})
-                  setShowResult(false)
-                  router.push(`/quiz?q=${quizSlug}&step=1`)
+                  router.push(`/quiz/${quizSlug}`)
                 }}
                 className="w-full rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto md:px-6 md:text-base"
               >
@@ -224,11 +222,11 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
   const stepData = quiz?.steps.find(s => s.step === currentStep)
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-16">
       <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
 
-      <div className="flex flex-1 flex-col items-center justify-center px-4 py-6 md:py-8">
-        <div className="w-full max-w-lg">
+      <div className="mx-auto max-w-4xl px-4 py-6 md:py-8">
+        <div className="mx-auto w-full max-w-lg">
           {/* Quiz Title */}
           <div className="mb-3 text-center md:mb-4">
             <h1 className="text-xs font-medium uppercase tracking-wider text-blue-600 md:text-sm">
@@ -273,9 +271,20 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
             </div>
           </div>
         </div>
-      </div>
 
-      <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
+        {/* Article below quiz on every step */}
+        {quiz?.article && (
+          <article className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:mt-12 md:p-8">
+            <div
+              className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 md:prose-lg"
+              dangerouslySetInnerHTML={{ __html: quiz.article }}
+            />
+          </article>
+        )}
+
+        <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
+      </div>
+      <Footer />
       <AnchorAd tenantPayload={tenantPayload} mounted={mounted} />
     </div>
   )
@@ -329,14 +338,14 @@ function AnchorAd({ tenantPayload, mounted }: { tenantPayload: TenantPayload | n
   )
 }
 
-export default function QuizEngine({ tenantPayload }: QuizEngineProps) {
+export default function QuizEngine({ tenantPayload, initialStep = 1 }: QuizEngineProps) {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
       </div>
     }>
-      <QuizContent tenantPayload={tenantPayload} />
+      <QuizContent tenantPayload={tenantPayload} initialStep={initialStep} />
     </Suspense>
   )
 }
