@@ -58,7 +58,7 @@ export async function getTenantConfig(hostname: string): Promise<TenantConfig | 
     },
   })
 
-  if (!tenant || tenant.status !== 'active') {
+  if (!tenant || tenant.status.toUpperCase() !== 'ACTIVE') {
     return null
   }
 
