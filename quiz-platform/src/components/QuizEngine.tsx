@@ -40,6 +40,11 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showResult, setShowResult] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const quizData = tenantPayload?.quizData
   const totalSteps = quizData?.steps.length || 5
@@ -117,7 +122,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
   if (currentStep === 4 || isAnalyzing) {
     return (
       <div className="flex min-h-screen flex-col">
-        <TopBannerAd tenantPayload={tenantPayload} />
+        <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
         <div className="flex flex-1 flex-col items-center justify-center px-4">
           <div className="w-full max-w-lg text-center">
             <div className="mx-auto mb-8 h-16 w-16 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
@@ -131,7 +136,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
               <div className="h-full animate-pulse rounded-full bg-blue-600" style={{ width: '75%' }} />
             </div>
             {/* Interstitial Ad Slot */}
-            {tenantPayload && (
+            {tenantPayload && mounted && (
               <div className="mt-8">
                 <ins
                   className="adsbygoogle"
@@ -145,7 +150,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
             )}
           </div>
         </div>
-        <AnchorAd tenantPayload={tenantPayload} />
+        <AnchorAd tenantPayload={tenantPayload} mounted={mounted} />
       </div>
     )
   }
@@ -154,7 +159,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
   if (showResult || searchParams.get('step') === 'result') {
     return (
       <div className="flex min-h-screen flex-col">
-        <TopBannerAd tenantPayload={tenantPayload} />
+        <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
         <div className="flex flex-1 flex-col items-center justify-center px-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-xl">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
@@ -181,8 +186,8 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
             </button>
           </div>
         </div>
-        <BottomBannerAd tenantPayload={tenantPayload} />
-        <AnchorAd tenantPayload={tenantPayload} />
+        <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
+        <AnchorAd tenantPayload={tenantPayload} mounted={mounted} />
       </div>
     )
   }
@@ -191,7 +196,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopBannerAd tenantPayload={tenantPayload} />
+      <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
 
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-lg">
@@ -234,14 +239,14 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
         </div>
       </div>
 
-      <BottomBannerAd tenantPayload={tenantPayload} />
-      <AnchorAd tenantPayload={tenantPayload} />
+      <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
+      <AnchorAd tenantPayload={tenantPayload} mounted={mounted} />
     </div>
   )
 }
 
-function TopBannerAd({ tenantPayload }: { tenantPayload: TenantPayload | null }) {
-  if (!tenantPayload) return null
+function TopBannerAd({ tenantPayload, mounted }: { tenantPayload: TenantPayload | null; mounted: boolean }) {
+  if (!tenantPayload || !mounted) return null
   return (
     <div className="w-full bg-gray-100 py-2 text-center">
       <ins
@@ -256,8 +261,8 @@ function TopBannerAd({ tenantPayload }: { tenantPayload: TenantPayload | null })
   )
 }
 
-function BottomBannerAd({ tenantPayload }: { tenantPayload: TenantPayload | null }) {
-  if (!tenantPayload) return null
+function BottomBannerAd({ tenantPayload, mounted }: { tenantPayload: TenantPayload | null; mounted: boolean }) {
+  if (!tenantPayload || !mounted) return null
   return (
     <div className="w-full bg-gray-100 py-2 text-center">
       <ins
@@ -272,8 +277,8 @@ function BottomBannerAd({ tenantPayload }: { tenantPayload: TenantPayload | null
   )
 }
 
-function AnchorAd({ tenantPayload }: { tenantPayload: TenantPayload | null }) {
-  if (!tenantPayload) return null
+function AnchorAd({ tenantPayload, mounted }: { tenantPayload: TenantPayload | null; mounted: boolean }) {
+  if (!tenantPayload || !mounted) return null
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white shadow-lg">
       <ins
