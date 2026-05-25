@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import Footer from '@/components/Footer'
 
 interface QuizStep {
   step: number
@@ -54,10 +55,8 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
   const totalSteps = quiz?.steps.length || 5
   const quizSlug = quiz?.slug || ''
 
-  // Inject AdSense script on mount
   useEffect(() => {
     if (!tenantPayload?.adClientId) return
-
     const existingScript = document.querySelector('script[src*="adsbygoogle"]')
     if (!existingScript) {
       const script = document.createElement('script')
@@ -68,17 +67,14 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
     }
   }, [tenantPayload?.adClientId])
 
-  // Inject Analytics
   useEffect(() => {
     if (!tenantPayload?.analyticsId) return
-
     const existingScript = document.querySelector('script[src*="gtag"]')
     if (!existingScript) {
       const script = document.createElement('script')
       script.src = `https://www.googletagmanager.com/gtag/js?id=${tenantPayload.analyticsId}`
       script.async = true
       document.head.appendChild(script)
-
       const inlineScript = document.createElement('script')
       inlineScript.innerHTML = `
         window.dataLayer = window.dataLayer || [];
@@ -90,14 +86,11 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
     }
   }, [tenantPayload?.analyticsId])
 
-  // Fire ad refresh on step change to trigger new auction
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown[]>).adsbygoogle) {
       try {
         ((window as unknown as Record<string, unknown[]>).adsbygoogle).push({})
-      } catch {
-        // Ad already loaded
-      }
+      } catch { /* Ad already loaded */ }
     }
   }, [currentStep])
 
@@ -106,7 +99,6 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
 
     if (currentStep < totalSteps) {
       const nextStep = currentStep + 1
-      // Step 4 is the interstitial delay step
       if (nextStep === 4) {
         setIsAnalyzing(true)
         router.push(`/quiz?q=${quizSlug}&step=${nextStep}`)
@@ -123,26 +115,25 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
     }
   }, [currentStep, totalSteps, router, quizSlug])
 
-  // Step 4 - Interstitial loading screen with high-CPM ad placement
+  // Step 4 - Interstitial
   if (currentStep === 4 || isAnalyzing) {
     return (
       <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-white">
         <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
-        <div className="flex flex-1 flex-col items-center justify-center px-4">
+        <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
           <div className="w-full max-w-lg text-center">
-            <div className="mx-auto mb-8 h-16 w-16 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-            <h2 className="mb-4 text-2xl font-bold text-gray-900">
+            <div className="mx-auto mb-6 h-14 w-14 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 md:mb-8 md:h-16 md:w-16" />
+            <h2 className="mb-3 text-xl font-bold text-gray-900 md:mb-4 md:text-2xl">
               Analyzing Your Enterprise Pipeline Infrastructure...
             </h2>
-            <p className="mb-6 text-gray-600">
-              Our AI engine is processing your responses against 10,000+ enterprise benchmarks for maximum accuracy
+            <p className="mb-4 text-sm text-gray-600 md:mb-6 md:text-base">
+              Our AI engine is processing your responses against 10,000+ enterprise benchmarks
             </p>
-            <div className="mx-auto h-2 w-64 overflow-hidden rounded-full bg-gray-200">
+            <div className="mx-auto h-2 w-full max-w-xs overflow-hidden rounded-full bg-gray-200">
               <div className="h-full animate-pulse rounded-full bg-gradient-to-r from-blue-600 to-indigo-600" style={{ width: '75%' }} />
             </div>
-            {/* HIGH-CPM Interstitial Ad Slot - Maximum Viewability */}
             {tenantPayload && mounted && (
-              <div className="mt-8">
+              <div className="mt-6 md:mt-8">
                 <ins
                   className="adsbygoogle"
                   style={{ display: 'block', minHeight: '250px' }}
@@ -163,35 +154,35 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
   // Result page with full article below
   if (showResult || searchParams.get('step') === 'result') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-16">
         <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
-        <div className="mx-auto max-w-4xl px-4 py-12">
+        <div className="mx-auto max-w-4xl px-4 py-8 md:py-12">
           {/* Result Card */}
-          <div className="rounded-2xl bg-white p-8 text-center shadow-xl">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-              <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="rounded-2xl bg-white p-5 text-center shadow-xl md:p-8">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 md:mb-6 md:h-20 md:w-20">
+              <svg className="h-8 w-8 text-green-600 md:h-10 md:w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="mb-4 text-2xl font-bold text-gray-900">Assessment Complete</h2>
-            <p className="mb-6 text-gray-700 leading-relaxed">
+            <h2 className="mb-3 text-xl font-bold text-gray-900 md:mb-4 md:text-2xl">Assessment Complete</h2>
+            <p className="mb-4 text-sm leading-relaxed text-gray-700 md:mb-6 md:text-base">
               {quiz?.resultLogic.message || 'Based on your enterprise profile, you qualify for our Premium tier with significantly higher ROI potential.'}
             </p>
-            <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
-              <p className="text-sm font-semibold text-blue-800">Your Score: 87/100 — Top 12% of Assessed Enterprises</p>
+            <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-3 md:p-4">
+              <p className="text-xs font-semibold text-blue-800 md:text-sm">Your Score: 87/100 — Top 12% of Assessed Enterprises</p>
             </div>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-center md:mt-6">
               <button
                 onClick={() => {
                   setAnswers({})
                   setShowResult(false)
                   router.push(`/quiz?q=${quizSlug}&step=1`)
                 }}
-                className="rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700"
+                className="w-full rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto md:px-6 md:text-base"
               >
                 Retake Assessment
               </button>
-              <a href="/quiz" className="rounded-lg border border-gray-300 px-6 py-3 text-gray-700 transition-colors hover:bg-gray-50">
+              <a href="/quiz" className="w-full rounded-lg border border-gray-300 px-5 py-3 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto md:px-6 md:text-base">
                 Browse All Assessments
               </a>
             </div>
@@ -199,7 +190,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
 
           {/* Mid-content Ad */}
           {tenantPayload && mounted && (
-            <div className="my-8">
+            <div className="my-6 md:my-8">
               <ins
                 className="adsbygoogle"
                 style={{ display: 'block' }}
@@ -211,11 +202,11 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
             </div>
           )}
 
-          {/* Full-Length SEO Article */}
+          {/* Full-Length SEO Article Below Quiz */}
           {quiz?.article && (
-            <article className="mt-12 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+            <article className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:mt-12 md:p-8">
               <div
-                className="prose prose-lg max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
+                className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 md:prose-lg"
                 dangerouslySetInnerHTML={{ __html: quiz.article }}
               />
             </article>
@@ -224,6 +215,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
           {/* Bottom Banner Ad */}
           <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
         </div>
+        <Footer />
         <AnchorAd tenantPayload={tenantPayload} mounted={mounted} />
       </div>
     )
@@ -235,18 +227,18 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-white">
       <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
 
-      <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-6 md:py-8">
         <div className="w-full max-w-lg">
           {/* Quiz Title */}
-          <div className="mb-4 text-center">
-            <h1 className="text-sm font-medium uppercase tracking-wider text-blue-600">
+          <div className="mb-3 text-center md:mb-4">
+            <h1 className="text-xs font-medium uppercase tracking-wider text-blue-600 md:text-sm">
               {quiz?.title || 'Assessment'}
             </h1>
           </div>
 
           {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="mb-2 flex justify-between text-sm text-gray-500">
+          <div className="mb-5 md:mb-8">
+            <div className="mb-2 flex justify-between text-xs text-gray-500 md:text-sm">
               <span>Step {currentStep} of {totalSteps}</span>
               <span>{Math.round((currentStep / totalSteps) * 100)}%</span>
             </div>
@@ -259,23 +251,23 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
           </div>
 
           {/* Question Card */}
-          <div className="rounded-2xl bg-white p-8 shadow-xl">
-            <h2 className="mb-6 text-xl font-bold text-gray-900">
+          <div className="rounded-2xl bg-white p-5 shadow-xl md:p-8">
+            <h2 className="mb-4 text-base font-bold text-gray-900 md:mb-6 md:text-xl">
               {stepData?.question || `Question ${currentStep}`}
             </h2>
 
-            <div className="space-y-3">
+            <div className="space-y-2 md:space-y-3">
               {(stepData?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleAnswer(option)}
-                  className={`w-full rounded-lg border-2 p-4 text-left transition-all hover:border-blue-500 hover:bg-blue-50 ${
+                  className={`w-full rounded-lg border-2 p-3 text-left transition-all hover:border-blue-500 hover:bg-blue-50 md:p-4 ${
                     answers[currentStep] === option
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200'
                   }`}
                 >
-                  <span className="font-medium text-gray-700">{option}</span>
+                  <span className="text-sm font-medium text-gray-700 md:text-base">{option}</span>
                 </button>
               ))}
             </div>
