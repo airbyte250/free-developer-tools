@@ -16,7 +16,7 @@ export interface TenantConfig {
     slug: string
     metaTitle: string
     metaDescription: string
-    quizData: QuizData
+    quizData: QuizCategoryData
   }
 }
 
@@ -26,6 +26,23 @@ export interface QuizStep {
   options: string[]
 }
 
+export interface QuizItem {
+  slug: string
+  title: string
+  description: string
+  article: string
+  steps: QuizStep[]
+  resultLogic: {
+    type: string
+    message: string
+  }
+}
+
+export interface QuizCategoryData {
+  quizzes: QuizItem[]
+}
+
+// Legacy single-quiz format support
 export interface QuizData {
   title: string
   steps: QuizStep[]
@@ -62,6 +79,27 @@ export async function getTenantConfig(hostname: string): Promise<TenantConfig | 
     return null
   }
 
+  const rawQuizData = tenant.category.quizData as unknown as QuizCategoryData | QuizData
+
+  // Support both new multi-quiz format and legacy single-quiz format
+  let quizData: QuizCategoryData
+  if ('quizzes' in rawQuizData) {
+    quizData = rawQuizData
+  } else {
+    // Convert legacy single quiz to new format
+    const legacy = rawQuizData as QuizData
+    quizData = {
+      quizzes: [{
+        slug: tenant.category.slug,
+        title: legacy.title,
+        description: tenant.category.metaDescription,
+        article: '',
+        steps: legacy.steps,
+        resultLogic: legacy.resultLogic,
+      }],
+    }
+  }
+
   const config: TenantConfig = {
     id: tenant.id,
     hostname: tenant.hostname,
@@ -77,7 +115,7 @@ export async function getTenantConfig(hostname: string): Promise<TenantConfig | 
       slug: tenant.category.slug,
       metaTitle: tenant.category.metaTitle,
       metaDescription: tenant.category.metaDescription,
-      quizData: tenant.category.quizData as unknown as QuizData,
+      quizData,
     },
   }
 

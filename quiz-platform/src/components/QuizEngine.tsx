@@ -10,8 +10,11 @@ interface QuizStep {
   options: string[]
 }
 
-interface QuizData {
+interface QuizItemData {
+  slug: string
   title: string
+  description: string
+  article: string
   steps: QuizStep[]
   resultLogic: {
     type: string
@@ -25,8 +28,9 @@ interface TenantPayload {
   interstitialSlotId: string
   anchorSlotId: string
   analyticsId: string | null
-  quizData: QuizData
+  quiz: QuizItemData
   metaTitle: string
+  categorySlug: string
 }
 
 interface QuizEngineProps {
@@ -46,8 +50,9 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
     setMounted(true)
   }, [])
 
-  const quizData = tenantPayload?.quizData
-  const totalSteps = quizData?.steps.length || 5
+  const quiz = tenantPayload?.quiz
+  const totalSteps = quiz?.steps.length || 5
+  const quizSlug = quiz?.slug || ''
 
   // Inject AdSense script on mount
   useEffect(() => {
@@ -104,24 +109,24 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
       // Step 4 is the interstitial delay step
       if (nextStep === 4) {
         setIsAnalyzing(true)
-        router.push(`/quiz?step=${nextStep}`)
+        router.push(`/quiz?q=${quizSlug}&step=${nextStep}`)
         setTimeout(() => {
           setIsAnalyzing(false)
-          router.push(`/quiz?step=${nextStep + 1}`)
+          router.push(`/quiz?q=${quizSlug}&step=${nextStep + 1}`)
         }, 3000)
       } else {
-        router.push(`/quiz?step=${nextStep}`)
+        router.push(`/quiz?q=${quizSlug}&step=${nextStep}`)
       }
     } else {
       setShowResult(true)
-      router.push('/quiz?step=result')
+      router.push(`/quiz?q=${quizSlug}&step=result`)
     }
-  }, [currentStep, totalSteps, router])
+  }, [currentStep, totalSteps, router, quizSlug])
 
-  // Step 4 - Interstitial loading screen
+  // Step 4 - Interstitial loading screen with high-CPM ad placement
   if (currentStep === 4 || isAnalyzing) {
     return (
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-white">
         <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
         <div className="flex flex-1 flex-col items-center justify-center px-4">
           <div className="w-full max-w-lg text-center">
@@ -130,17 +135,17 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
               Analyzing Your Enterprise Pipeline Infrastructure...
             </h2>
             <p className="mb-6 text-gray-600">
-              Our AI engine is processing your responses against 10,000+ enterprise benchmarks
+              Our AI engine is processing your responses against 10,000+ enterprise benchmarks for maximum accuracy
             </p>
             <div className="mx-auto h-2 w-64 overflow-hidden rounded-full bg-gray-200">
-              <div className="h-full animate-pulse rounded-full bg-blue-600" style={{ width: '75%' }} />
+              <div className="h-full animate-pulse rounded-full bg-gradient-to-r from-blue-600 to-indigo-600" style={{ width: '75%' }} />
             </div>
-            {/* Interstitial Ad Slot */}
+            {/* HIGH-CPM Interstitial Ad Slot - Maximum Viewability */}
             {tenantPayload && mounted && (
               <div className="mt-8">
                 <ins
                   className="adsbygoogle"
-                  style={{ display: 'block' }}
+                  style={{ display: 'block', minHeight: '250px' }}
                   data-ad-client={tenantPayload.adClientId}
                   data-ad-slot={tenantPayload.interstitialSlotId}
                   data-ad-format="auto"
@@ -155,51 +160,90 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
     )
   }
 
-  // Result page
+  // Result page with full article below
   if (showResult || searchParams.get('step') === 'result') {
     return (
-      <div className="flex min-h-screen flex-col">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
-        <div className="flex flex-1 flex-col items-center justify-center px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-xl">
+        <div className="mx-auto max-w-4xl px-4 py-12">
+          {/* Result Card */}
+          <div className="rounded-2xl bg-white p-8 text-center shadow-xl">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
               <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <h2 className="mb-4 text-2xl font-bold text-gray-900">Assessment Complete</h2>
-            <p className="mb-6 text-gray-600">
-              {quizData?.resultLogic.message || 'Based on your enterprise profile, you qualify for our Premium CRM Automation tier with 47% higher ROI potential.'}
+            <p className="mb-6 text-gray-700 leading-relaxed">
+              {quiz?.resultLogic.message || 'Based on your enterprise profile, you qualify for our Premium tier with significantly higher ROI potential.'}
             </p>
-            <div className="rounded-lg bg-blue-50 p-4">
-              <p className="text-sm font-semibold text-blue-800">Your Score: 87/100 — Top 12% of Enterprises</p>
+            <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+              <p className="text-sm font-semibold text-blue-800">Your Score: 87/100 — Top 12% of Assessed Enterprises</p>
             </div>
-            <button
-              onClick={() => {
-                setAnswers({})
-                setShowResult(false)
-                router.push('/quiz?step=1')
-              }}
-              className="mt-6 rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700"
-            >
-              Retake Assessment
-            </button>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <button
+                onClick={() => {
+                  setAnswers({})
+                  setShowResult(false)
+                  router.push(`/quiz?q=${quizSlug}&step=1`)
+                }}
+                className="rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700"
+              >
+                Retake Assessment
+              </button>
+              <a href="/quiz" className="rounded-lg border border-gray-300 px-6 py-3 text-gray-700 transition-colors hover:bg-gray-50">
+                Browse All Assessments
+              </a>
+            </div>
           </div>
+
+          {/* Mid-content Ad */}
+          {tenantPayload && mounted && (
+            <div className="my-8">
+              <ins
+                className="adsbygoogle"
+                style={{ display: 'block' }}
+                data-ad-client={tenantPayload.adClientId}
+                data-ad-slot={tenantPayload.bannerSlotId}
+                data-ad-format="auto"
+                data-full-width-responsive="true"
+              />
+            </div>
+          )}
+
+          {/* Full-Length SEO Article */}
+          {quiz?.article && (
+            <article className="mt-12 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+              <div
+                className="prose prose-lg max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
+                dangerouslySetInnerHTML={{ __html: quiz.article }}
+              />
+            </article>
+          )}
+
+          {/* Bottom Banner Ad */}
+          <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
         </div>
-        <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
         <AnchorAd tenantPayload={tenantPayload} mounted={mounted} />
       </div>
     )
   }
 
-  const stepData = quizData?.steps.find(s => s.step === currentStep)
+  const stepData = quiz?.steps.find(s => s.step === currentStep)
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-white">
       <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
 
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-lg">
+          {/* Quiz Title */}
+          <div className="mb-4 text-center">
+            <h1 className="text-sm font-medium uppercase tracking-wider text-blue-600">
+              {quiz?.title || 'Assessment'}
+            </h1>
+          </div>
+
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="mb-2 flex justify-between text-sm text-gray-500">
@@ -208,7 +252,7 @@ function QuizContent({ tenantPayload }: QuizEngineProps) {
             </div>
             <div className="h-2 w-full rounded-full bg-gray-200">
               <div
-                className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-500"
                 style={{ width: `${(currentStep / totalSteps) * 100}%` }}
               />
             </div>
@@ -270,7 +314,7 @@ function BottomBannerAd({ tenantPayload, mounted }: { tenantPayload: TenantPaylo
         style={{ display: 'block' }}
         data-ad-client={tenantPayload.adClientId}
         data-ad-slot={tenantPayload.bannerSlotId}
-        data-ad-format="horizontal"
+        data-ad-format="auto"
         data-full-width-responsive="true"
       />
     </div>
@@ -280,13 +324,13 @@ function BottomBannerAd({ tenantPayload, mounted }: { tenantPayload: TenantPaylo
 function AnchorAd({ tenantPayload, mounted }: { tenantPayload: TenantPayload | null; mounted: boolean }) {
   if (!tenantPayload || !mounted) return null
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 py-1 text-center shadow-lg backdrop-blur-sm">
       <ins
         className="adsbygoogle"
         style={{ display: 'block' }}
         data-ad-client={tenantPayload.adClientId}
         data-ad-slot={tenantPayload.anchorSlotId}
-        data-ad-format="autorelaxed"
+        data-ad-format="auto"
         data-full-width-responsive="true"
       />
     </div>
