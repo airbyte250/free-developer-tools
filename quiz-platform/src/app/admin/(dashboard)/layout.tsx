@@ -37,6 +37,12 @@ export default async function AdminLayout({
                 >
                   Categories
                 </Link>
+                <Link
+                  href="/admin/users"
+                  className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  Users
+                </Link>
               </div>
             </div>
             <div className="flex items-center gap-4">

@@ -8,8 +8,8 @@ const JWT_SECRET = new TextEncoder().encode(
 const COOKIE_NAME = 'admin_session'
 const TOKEN_EXPIRY = '24h'
 
-export async function createSession(username: string): Promise<string> {
-  const token = await new SignJWT({ username, role: 'admin' })
+export async function createSession(username: string, role: string = 'admin'): Promise<string> {
+  const token = await new SignJWT({ username, role })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(TOKEN_EXPIRY)
@@ -30,13 +30,6 @@ export async function verifySession(): Promise<{ username: string; role: string 
   } catch {
     return null
   }
-}
-
-export function validateCredentials(username: string, password: string): boolean {
-  const adminUsername = process.env.ADMIN_USERNAME || 'admin'
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
-
-  return username === adminUsername && password === adminPassword
 }
 
 export { COOKIE_NAME }
