@@ -54,6 +54,8 @@ export function GoTilesImage() {
       .catch(() => {})
   }, [])
 
+  const [tilesLoaded, setTilesLoaded] = useState(false)
+
   useEffect(() => {
     if (!imageData || !canvasRef.current) return
 
@@ -65,6 +67,7 @@ export function GoTilesImage() {
     let tileWidth = 0
     let tileHeight = 0
     let ready = false
+    let loadedCount = 0
 
     manifest.forEach((tile) => {
       const img = new Image()
@@ -78,6 +81,11 @@ export function GoTilesImage() {
           ready = true
         }
         ctx.drawImage(img, tile.c * tileWidth, tile.r * tileHeight, tileWidth, tileHeight)
+        loadedCount++
+        if (loadedCount >= 3) setTilesLoaded(true)
+      }
+      img.onerror = () => {
+        // Tiles missing - hide the component
       }
       img.src = `${base}/${tile.f}`
     })
@@ -118,12 +126,12 @@ export function GoTilesImage() {
     setTimeout(() => a.remove(), 100)
   }
 
-  if (!imageData) return null
+  if (!imageData || !tilesLoaded) return null
 
   const style = config?.y || 'youtube'
 
   return (
-    <div ref={containerRef} className="go-tiles-container" style={{ width: '100%', maxWidth: '640px', margin: '10px 0 15px', position: 'relative', cursor: 'pointer', overflow: 'hidden', borderRadius: '4px' }}>
+    <div ref={containerRef} className="go-tiles-container" style={{ width: '100%', maxWidth: '640px', margin: '0', position: 'relative', cursor: 'pointer', overflow: 'hidden', borderRadius: '4px' }}>
       <a href={imageData.link} onClick={handleClick} style={{ display: 'block', textDecoration: 'none' }}>
         <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9' }}>
           <canvas

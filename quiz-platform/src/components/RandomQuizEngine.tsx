@@ -82,7 +82,7 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
     return (
       <div className="min-h-screen bg-gray-50 pb-16">
         {customBannerCode && (
-          <div className="flex justify-center px-2 pt-3">
+          <div className="flex justify-center">
             <div className="w-[336px] max-w-full"><AdSlot code={customBannerCode} /></div>
           </div>
         )}
@@ -141,21 +141,14 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
     <div className="min-h-screen bg-gray-50 pb-16">
       {/* Ad Slot 1: 336x280 (top) */}
       {customBannerCode && (
-        <div className="flex justify-center px-2 pt-3">
+        <div className="flex justify-center">
           <div className="w-[336px] max-w-full"><AdSlot code={customBannerCode} /></div>
         </div>
       )}
 
-      <div className="mx-auto max-w-md px-3 py-3">
+      <div className="mx-auto max-w-md px-3 py-2">
         {/* Go Tiles Image (video player lookalike) */}
         <GoTilesImage />
-
-        {/* Ad Slot 2: 336x280 (below video, above quiz) */}
-        {customBannerCode && (
-          <div className="my-3 flex justify-center">
-            <div className="w-[336px] max-w-full"><AdSlot code={customBannerCode} /></div>
-          </div>
-        )}
 
         {/* Progress bar */}
         <div className="mb-3 flex items-center gap-2">
