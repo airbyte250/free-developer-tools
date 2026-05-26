@@ -17,7 +17,7 @@ interface GoImage {
 interface TenantInfo {
   id: string
   hostname: string
-  active: boolean
+  status: string
 }
 
 export default function GoSystemPage() {
@@ -45,7 +45,7 @@ export default function GoSystemPage() {
       if (imagesRes.ok) setImages(await imagesRes.json())
       if (tenantsRes.ok) {
         const tenantsData = await tenantsRes.json()
-        setTenants(tenantsData.map((t: { id: string; hostname: string; active: boolean }) => ({ id: t.id, hostname: t.hostname, active: t.active })))
+        setTenants(tenantsData.map((t: { id: string; hostname: string; status: string }) => ({ id: t.id, hostname: t.hostname, status: t.status })))
       }
     } catch (err) {
       console.error('Failed to load:', err)
@@ -653,7 +653,7 @@ export default function GoSystemPage() {
               <p className="text-sm text-gray-500">Koi domain register nahi hai. Tenants page se domain add karo.</p>
             ) : (
               <div className="space-y-3">
-                {tenants.filter(t => t.active).map((t) => (
+                {tenants.filter(t => t.status === 'active').map((t) => (
                   <div key={t.id} className="flex items-center justify-between rounded-lg border bg-gray-50 px-4 py-3">
                     <div>
                       <code className="rounded bg-indigo-50 px-2 py-1 text-sm font-bold text-indigo-700">
@@ -692,7 +692,7 @@ export default function GoSystemPage() {
             <h2 className="mb-4 text-lg font-bold text-gray-900">Status</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="rounded-lg border bg-gray-50 p-3 text-center">
-                <p className="text-2xl font-bold text-indigo-600">{tenants.filter(t => t.active).length}</p>
+                <p className="text-2xl font-bold text-indigo-600">{tenants.filter(t => t.status === 'active').length}</p>
                 <p className="text-xs text-gray-500">Active Domains</p>
               </div>
               <div className="rounded-lg border bg-gray-50 p-3 text-center">
