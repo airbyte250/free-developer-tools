@@ -220,43 +220,29 @@ function QuizContent({ tenantPayload, initialStep = 1 }: QuizEngineProps) {
                 </a>
               </div>
             </div>
-          </div>
 
-          {/* Mid Ad */}
-          {tenantPayload && mounted && (
-            <div className="my-6 md:my-8">
-              <ins
-                className="adsbygoogle"
-                style={{ display: 'block' }}
-                data-ad-client={tenantPayload.adClientId}
-                data-ad-slot={tenantPayload.bannerSlotId}
-                data-ad-format="auto"
-                data-full-width-responsive="true"
-              />
-            </div>
-          )}
-
-          {/* Article */}
-          {quiz?.article && (
-            <article className="mt-8 overflow-hidden rounded-3xl bg-white shadow-xl md:mt-12">
-              <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 md:px-8 md:py-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md">
-                    <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
+            {/* Article - inside result card, no gap */}
+            {quiz?.article && (
+              <div>
+                <div className="border-t border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 md:px-8 md:py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md">
+                      <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-bold text-gray-800 md:text-base">Expert Guide</span>
                   </div>
-                  <span className="text-sm font-bold text-gray-800 md:text-base">Expert Guide</span>
+                </div>
+                <div className="p-5 md:p-8">
+                  <div
+                    className="prose prose-sm max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:leading-relaxed prose-p:text-gray-600 prose-a:text-indigo-600 prose-a:no-underline hover:prose-a:underline md:prose-base"
+                    dangerouslySetInnerHTML={{ __html: quiz.article }}
+                  />
                 </div>
               </div>
-              <div className="p-5 md:p-8">
-                <div
-                  className="prose prose-sm max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:leading-relaxed prose-p:text-gray-600 prose-a:text-indigo-600 prose-a:no-underline hover:prose-a:underline md:prose-base"
-                  dangerouslySetInnerHTML={{ __html: quiz.article }}
-                />
-              </div>
-            </article>
-          )}
+            )}
+          </div>
 
           <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
         </div>
@@ -306,7 +292,7 @@ function QuizContent({ tenantPayload, initialStep = 1 }: QuizEngineProps) {
           </div>
         </div>
 
-        {/* Question Card */}
+        {/* Question Card + Article combined */}
         <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
           <div className="p-6 md:p-8">
             <h2 className="mb-6 text-xl font-extrabold leading-snug text-gray-900 md:mb-8 md:text-2xl">
@@ -334,29 +320,29 @@ function QuizContent({ tenantPayload, initialStep = 1 }: QuizEngineProps) {
               })}
             </div>
           </div>
-        </div>
 
-        {/* Article */}
-        {quiz?.article && (
-          <article className="mt-8 overflow-hidden rounded-3xl bg-white shadow-xl md:mt-12">
-            <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 md:px-8 md:py-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md">
-                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+          {/* Article - directly attached below quiz */}
+          {quiz?.article && (
+            <div>
+              <div className="border-t border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 md:px-8 md:py-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md">
+                    <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800 md:text-base">Expert Guide</span>
                 </div>
-                <span className="text-sm font-bold text-gray-800 md:text-base">Expert Guide</span>
+              </div>
+              <div className="p-5 md:p-8">
+                <div
+                  className="prose prose-sm max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:leading-relaxed prose-p:text-gray-600 prose-a:text-indigo-600 prose-a:no-underline hover:prose-a:underline md:prose-base"
+                  dangerouslySetInnerHTML={{ __html: quiz.article }}
+                />
               </div>
             </div>
-            <div className="p-5 md:p-8">
-              <div
-                className="prose prose-sm max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:leading-relaxed prose-p:text-gray-600 prose-a:text-indigo-600 prose-a:no-underline hover:prose-a:underline md:prose-base"
-                dangerouslySetInnerHTML={{ __html: quiz.article }}
-              />
-            </div>
-          </article>
-        )}
+          )}
+        </div>
 
         <BottomBannerAd tenantPayload={tenantPayload} mounted={mounted} />
       </div>
