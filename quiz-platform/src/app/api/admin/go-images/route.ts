@@ -11,7 +11,12 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const images = await prisma.goImage.findMany({ orderBy: { createdAt: 'desc' } })
+  const tenantId = request.nextUrl.searchParams.get('tenantId') || null
+
+  const images = await prisma.goImage.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+  })
   return Response.json(images)
 }
 
@@ -24,6 +29,7 @@ export async function POST(request: NextRequest) {
   const file = formData.get('image') as File | null
   const link = (formData.get('link') as string) || '/go'
   const targetTiles = parseInt((formData.get('targetTiles') as string) || '100', 10)
+  const tenantId = (formData.get('tenantId') as string) || null
 
   if (!file) {
     return Response.json({ error: 'No image uploaded' }, { status: 400 })
@@ -41,7 +47,7 @@ export async function POST(request: NextRequest) {
   const tempPath = path.join(tilesDir, 'original.tmp')
   await writeFile(tempPath, buffer)
 
-  // Split image into tiles using sharp (or canvas fallback)
+  // Split image into tiles using sharp
   let splitResult
   try {
     const sharp = (await import('sharp')).default
@@ -106,7 +112,6 @@ export async function POST(request: NextRequest) {
       manifest,
     }
   } catch (err) {
-    // Clean up temp file
     try { await unlink(tempPath) } catch {}
     return Response.json({ error: 'Image processing failed: ' + String(err) }, { status: 500 })
   }
@@ -114,7 +119,7 @@ export async function POST(request: NextRequest) {
   // Clean up temp file
   try { await unlink(tempPath) } catch {}
 
-  // Save to database
+  // Save to database with tenantId
   const goImage = await prisma.goImage.create({
     data: {
       tileId: splitResult.tileId,
@@ -125,6 +130,7 @@ export async function POST(request: NextRequest) {
       width: splitResult.width,
       height: splitResult.height,
       manifest: splitResult.manifest,
+      tenantId,
     },
   })
 

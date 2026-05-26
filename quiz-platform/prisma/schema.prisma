@@ -22,8 +22,10 @@ model Tenant {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  category Category @relation(fields: [categoryId], references: [id])
-  adsTxt   AdsTxt[]
+  category   Category     @relation(fields: [categoryId], references: [id])
+  adsTxt     AdsTxt[]
+  goSettings GoSettings[]
+  goImages   GoImage[]
 
   @@map("tenants")
 }
@@ -66,10 +68,14 @@ model User {
 }
 
 model GoSettings {
-  id    String @id @default("default")
-  key   String @unique
-  value String @db.Text
+  id       String  @id @default("default")
+  key      String
+  value    String  @db.Text
+  tenantId String? @map("tenant_id")
 
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([key, tenantId])
   @@map("go_settings")
 }
 
@@ -83,7 +89,10 @@ model GoImage {
   width     Int      @default(1920)
   height    Int      @default(1080)
   manifest  Json     @default("[]")
+  tenantId  String?  @map("tenant_id")
   createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("go_images")
 }

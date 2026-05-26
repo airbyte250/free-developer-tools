@@ -119,6 +119,8 @@ export async function PUT(request: NextRequest) {
   if (data.hostname && data.hostname !== existing.hostname) {
     await invalidateTenantCache(data.hostname)
   }
+  // Also invalidate new hostname after update (in case category changed)
+  await invalidateTenantCache(tenant.hostname)
 
   return Response.json(tenant)
 }

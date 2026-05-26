@@ -2,34 +2,47 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-async function getSetting(key: string, defaultValue: string = ''): Promise<string> {
-  const setting = await prisma.goSettings.findUnique({ where: { key } })
-  return setting?.value ?? defaultValue
+async function getSetting(key: string, tenantId: string | null, defaultValue: string = ''): Promise<string> {
+  // Try tenant-specific setting first, then fall back to global
+  if (tenantId) {
+    const tenantSetting = await prisma.goSettings.findFirst({ where: { key, tenantId } })
+    if (tenantSetting) return tenantSetting.value
+  }
+  const globalSetting = await prisma.goSettings.findFirst({ where: { key, tenantId: null } })
+  return globalSetting?.value ?? defaultValue
 }
 
 export async function GET(request: NextRequest) {
   const hostname = request.headers.get('host') || ''
+  const cleanHost = hostname.replace(/:\d+$/, '')
+
+  // Find tenant for this hostname
+  const tenant = await prisma.tenant.findUnique({
+    where: { hostname: cleanHost },
+    include: { category: true },
+  })
+
+  const tenantId = tenant?.id || null
 
   // Check if Go redirect is enabled
-  const goEnabled = await getSetting('go_enabled', '1')
+  const goEnabled = await getSetting('go_enabled', tenantId, '1')
   if (goEnabled !== '1') {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
   // Visit count redirect logic
-  const visitRedirectEnabled = await getSetting('visit_redirect_enabled', '0')
+  const visitRedirectEnabled = await getSetting('visit_redirect_enabled', tenantId, '0')
   if (visitRedirectEnabled === '1') {
-    const visitThreshold = parseInt(await getSetting('visit_redirect_count', '3'), 10)
-    const visitRedirectUrl = await getSetting('visit_redirect_url', '/')
-    const visitResetAfter = (await getSetting('visit_redirect_reset', '1')) === '1'
-    const visitExpiry = parseInt(await getSetting('visit_redirect_expiry', '30'), 10)
+    const visitThreshold = parseInt(await getSetting('visit_redirect_count', tenantId, '3'), 10)
+    const visitRedirectUrl = await getSetting('visit_redirect_url', tenantId, '/')
+    const visitResetAfter = (await getSetting('visit_redirect_reset', tenantId, '1')) === '1'
+    const visitExpiry = parseInt(await getSetting('visit_redirect_expiry', tenantId, '30'), 10)
 
     const cookieStore = await cookies()
     const currentCount = parseInt(cookieStore.get('_jgt_vc')?.value || '0', 10)
     const newCount = currentCount + 1
 
     if (newCount > visitThreshold) {
-      // Redirect to custom URL
       const response = NextResponse.redirect(visitRedirectUrl.startsWith('http') ? visitRedirectUrl : new URL(visitRedirectUrl, request.url))
       if (visitResetAfter) {
         response.cookies.delete('_jgt_vc')
@@ -37,8 +50,7 @@ export async function GET(request: NextRequest) {
       return response
     }
 
-    // Set visit count cookie
-    const response = await buildGoRedirect(request, hostname)
+    const response = await buildGoRedirect(request, tenant)
     response.cookies.set('_jgt_vc', String(newCount), {
       maxAge: visitExpiry * 60,
       path: '/',
@@ -47,38 +59,17 @@ export async function GET(request: NextRequest) {
     return response
   }
 
-  return buildGoRedirect(request, hostname)
+  return buildGoRedirect(request, tenant)
 }
 
-async function buildGoRedirect(request: NextRequest, hostname: string): Promise<NextResponse> {
-  // Get categories to restrict (if any)
-  const goCategories = await getSetting('go_categories', '')
-
-  // Find tenant for this hostname to get its category
-  const tenant = await prisma.tenant.findUnique({
-    where: { hostname: hostname.replace(/:\d+$/, '') },
-    include: { category: true },
-  })
-
+async function buildGoRedirect(request: NextRequest, tenant: { id: string; category: { quizData: unknown } } | null): Promise<NextResponse> {
   let quizSlugs: string[] = []
 
   if (tenant) {
-    // Get quizzes from this tenant's category
-    const category = tenant.category
-    const quizData = category.quizData as { quizzes?: Array<{ slug: string }> }
+    const quizData = tenant.category.quizData as { quizzes?: Array<{ slug: string }> }
     quizSlugs = (quizData.quizzes || []).map((q) => q.slug)
-  } else if (goCategories) {
-    // Get quizzes from specified categories
-    const catIds = goCategories.split(',').map((s) => s.trim())
-    const categories = await prisma.category.findMany({
-      where: { slug: { in: catIds } },
-    })
-    for (const cat of categories) {
-      const quizData = cat.quizData as { quizzes?: Array<{ slug: string }> }
-      quizSlugs.push(...(quizData.quizzes || []).map((q) => q.slug))
-    }
   } else {
-    // Get all quizzes
+    // Get all quizzes from all categories
     const categories = await prisma.category.findMany()
     for (const cat of categories) {
       const quizData = cat.quizData as { quizzes?: Array<{ slug: string }> }
@@ -93,7 +84,7 @@ async function buildGoRedirect(request: NextRequest, hostname: string): Promise<
   // Pick random quiz
   const randomSlug = quizSlugs[Math.floor(Math.random() * quizSlugs.length)]
   const proto = request.headers.get('x-forwarded-proto') || 'https'
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || hostname
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
   const redirectUrl = `${proto}://${host}/quiz/${randomSlug}`
 
   // Use 307 temporary redirect (browsers must not cache this)
@@ -103,10 +94,10 @@ async function buildGoRedirect(request: NextRequest, hostname: string): Promise<
   response.cookies.set('_t', '1', {
     path: '/',
     sameSite: 'lax',
-    maxAge: 86400, // 24 hours
+    maxAge: 86400,
   })
 
-  // Aggressively prevent ALL caching (browser + CDN + proxy)
+  // Aggressively prevent ALL caching
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, private, max-age=0, s-maxage=0')
   response.headers.set('Pragma', 'no-cache')
   response.headers.set('Expires', '0')

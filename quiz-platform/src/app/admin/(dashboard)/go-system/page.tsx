@@ -18,12 +18,14 @@ interface TenantInfo {
   id: string
   hostname: string
   status: string
+  category?: { slug: string; metaTitle: string }
 }
 
 export default function GoSystemPage() {
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [images, setImages] = useState<GoImage[]>([])
   const [tenants, setTenants] = useState<TenantInfo[]>([])
+  const [selectedTenant, setSelectedTenant] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -31,26 +33,45 @@ export default function GoSystemPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    loadData()
+    loadTenants()
   }, [])
 
-  async function loadData() {
+  useEffect(() => {
+    if (selectedTenant) {
+      loadTenantData(selectedTenant)
+    }
+  }, [selectedTenant])
+
+  async function loadTenants() {
     try {
-      const [settingsRes, imagesRes, tenantsRes] = await Promise.all([
-        fetch('/api/admin/go-settings'),
-        fetch('/api/admin/go-images'),
-        fetch('/api/admin/tenants'),
-      ])
-      if (settingsRes.ok) setSettings(await settingsRes.json())
-      if (imagesRes.ok) setImages(await imagesRes.json())
-      if (tenantsRes.ok) {
-        const tenantsData = await tenantsRes.json()
-        setTenants(tenantsData.map((t: { id: string; hostname: string; status: string }) => ({ id: t.id, hostname: t.hostname, status: t.status })))
+      const res = await fetch('/api/admin/tenants')
+      if (res.ok) {
+        const data = await res.json()
+        const activeTenants = data.filter((t: TenantInfo) => t.status === 'active')
+        setTenants(activeTenants)
+        if (activeTenants.length > 0) {
+          setSelectedTenant(activeTenants[0].id)
+        }
       }
     } catch (err) {
-      console.error('Failed to load:', err)
+      console.error('Failed to load tenants:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadTenantData(tenantId: string) {
+    try {
+      const [settingsRes, imagesRes] = await Promise.all([
+        fetch(`/api/admin/go-settings?tenantId=${tenantId}`),
+        fetch(`/api/admin/go-images?tenantId=${tenantId}`),
+      ])
+      if (settingsRes.ok) setSettings(await settingsRes.json())
+      else setSettings({})
+      if (imagesRes.ok) setImages(await imagesRes.json())
+      else setImages([])
+    } catch (err) {
+      console.error('Failed to load tenant data:', err)
     }
   }
 
@@ -60,7 +81,7 @@ export default function GoSystemPage() {
       await fetch('/api/admin/go-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ ...settings, tenantId: selectedTenant }),
       })
       alert('Settings saved!')
     } catch {
@@ -80,6 +101,7 @@ export default function GoSystemPage() {
     formData.append('image', file)
     formData.append('link', settings.upload_link || '/go')
     formData.append('targetTiles', settings.target_tiles || '100')
+    formData.append('tenantId', selectedTenant)
 
     try {
       const res = await fetch('/api/admin/go-images', {
@@ -89,7 +111,7 @@ export default function GoSystemPage() {
       const data = await res.json()
       if (data.success) {
         alert(data.message)
-        loadData()
+        loadTenantData(selectedTenant)
         if (fileInputRef.current) fileInputRef.current.value = ''
       } else {
         alert(data.error || 'Upload failed')
@@ -119,6 +141,8 @@ export default function GoSystemPage() {
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
+  const currentTenant = tenants.find((t) => t.id === selectedTenant)
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -127,11 +151,42 @@ export default function GoSystemPage() {
     )
   }
 
+  if (tenants.length === 0) {
+    return (
+      <div className="rounded-xl border bg-white p-8 text-center shadow-sm">
+        <h2 className="mb-2 text-xl font-bold text-gray-900">No Active Domains</h2>
+        <p className="text-gray-600">Pehle Tenants page se ek domain add karo, phir yahan Go System configure kar sakte ho.</p>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Go System</h1>
-        <p className="text-sm text-gray-500">Content management, media optimization & ad toolkit</p>
+        <p className="text-sm text-gray-500">Per-domain Go images, video loading, ads & redirect settings</p>
+      </div>
+
+      {/* Domain Selector */}
+      <div className="mb-6 rounded-xl border bg-gradient-to-r from-indigo-50 to-purple-50 p-4 shadow-sm">
+        <label className="mb-2 block text-sm font-bold text-gray-700">Select Domain</label>
+        <select
+          value={selectedTenant}
+          onChange={(e) => setSelectedTenant(e.target.value)}
+          className="w-full rounded-lg border-2 border-indigo-200 bg-white px-4 py-3 text-sm font-medium text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none"
+        >
+          {tenants.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.hostname} {t.category ? `(${t.category.metaTitle})` : ''}
+            </option>
+          ))}
+        </select>
+        {currentTenant && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Active</span>
+            <code className="text-xs text-indigo-600">https://{currentTenant.hostname}/go</code>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -146,10 +201,10 @@ export default function GoSystemPage() {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            {tab === 'settings' && '⚙️ Settings'}
-            {tab === 'images' && '🖼️ Go Images'}
-            {tab === 'ads' && '📢 Ad Management'}
-            {tab === 'advanced' && '🔧 Advanced'}
+            {tab === 'settings' && 'Settings'}
+            {tab === 'images' && 'Go Images'}
+            {tab === 'ads' && 'Ad Management'}
+            {tab === 'advanced' && 'Advanced'}
           </button>
         ))}
       </div>
@@ -157,9 +212,8 @@ export default function GoSystemPage() {
       {/* Settings Tab */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
-          {/* Go URL Settings */}
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Go URL Settings</h2>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Go URL Settings — {currentTenant?.hostname}</h2>
             <div className="space-y-4">
               <label className="flex items-center gap-3">
                 <input
@@ -168,19 +222,8 @@ export default function GoSystemPage() {
                   onChange={(e) => updateSetting('go_enabled', e.target.checked ? '1' : '0')}
                   className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                 />
-                <span className="text-sm font-medium text-gray-700">Enable /go URL redirect to random quiz/post</span>
+                <span className="text-sm font-medium text-gray-700">Enable /go URL redirect to random quiz</span>
               </label>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Restrict to Categories (comma-separated slugs)</label>
-                <input
-                  type="text"
-                  value={settings.go_categories || ''}
-                  onChange={(e) => updateSetting('go_categories', e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  placeholder="Leave empty for all categories"
-                />
-              </div>
             </div>
           </div>
 
@@ -198,7 +241,7 @@ export default function GoSystemPage() {
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-900">/go Users Only</span>
-                  <p className="text-xs text-gray-500">Tiles image sirf /go URL se aane wale users ko dikhegi</p>
+                  <p className="text-xs text-gray-500">Tiles sirf /go URL se aane wale users ko dikhegi</p>
                 </div>
               </label>
               <label className="flex items-center gap-3">
@@ -211,7 +254,7 @@ export default function GoSystemPage() {
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-900">All Users</span>
-                  <p className="text-xs text-gray-500">Tiles image sabhi visitors ko dikhegi</p>
+                  <p className="text-xs text-gray-500">Tiles sabhi visitors ko dikhegi</p>
                 </div>
               </label>
             </div>
@@ -237,16 +280,15 @@ export default function GoSystemPage() {
                   onChange={(e) => updateSetting('fb_browser_only', e.target.checked ? '1' : '0')}
                   className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                 />
-                <span className="text-sm font-medium text-gray-700">Show Go images to FB/IG in-app browser ONLY</span>
+                <span className="text-sm font-medium text-gray-700">Show tiles to FB/IG in-app browser ONLY</span>
               </label>
-              <p className="text-xs text-gray-500">When enabled, tiles will only appear for Facebook/Instagram in-app browser traffic</p>
             </div>
           </div>
 
           {/* Video Loading Animation */}
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-bold text-gray-900">Video Loading Animation</h2>
-            <p className="mb-4 text-xs text-gray-500">When user clicks the Go image, show a video loading/buffering animation before redirecting</p>
+            <p className="mb-4 text-xs text-gray-500">Image click karne pe fake video loading dikhata hai, phir redirect karta hai</p>
             <div className="space-y-4">
               <label className="flex items-center gap-3">
                 <input
@@ -255,7 +297,7 @@ export default function GoSystemPage() {
                   onChange={(e) => updateSetting('video_loading_enabled', e.target.checked ? '1' : '0')}
                   className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                 />
-                <span className="text-sm font-medium text-gray-700">Enable video loading animation on click</span>
+                <span className="text-sm font-medium text-gray-700">Enable video loading animation</span>
               </label>
 
               <div>
@@ -289,7 +331,7 @@ export default function GoSystemPage() {
           {/* Visit Count Redirect */}
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-bold text-gray-900">Visit Count Redirect</h2>
-            <p className="mb-4 text-xs text-gray-500">Redirect users to a custom URL after they visit /go a certain number of times</p>
+            <p className="mb-4 text-xs text-gray-500">X baar /go visit karne ke baad custom URL pe redirect</p>
             <div className="space-y-4">
               <label className="flex items-center gap-3">
                 <input
@@ -312,7 +354,6 @@ export default function GoSystemPage() {
                     onChange={(e) => updateSetting('visit_redirect_count', e.target.value)}
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Redirect after this many visits</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Cookie Expiry (minutes)</label>
@@ -350,26 +391,12 @@ export default function GoSystemPage() {
             </div>
           </div>
 
-          {/* Display Settings */}
-          <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Display Settings</h2>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={settings.hide_featured_image !== '0'}
-                onChange={(e) => updateSetting('hide_featured_image', e.target.checked ? '1' : '0')}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600"
-              />
-              <span className="text-sm font-medium text-gray-700">Hide featured image when Go image is displayed</span>
-            </label>
-          </div>
-
           <button
             onClick={saveSettings}
             disabled={saving}
             className="rounded-lg bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg transition hover:bg-indigo-700 disabled:opacity-50"
           >
-            {saving ? 'Saving...' : '💾 Save Settings'}
+            {saving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
       )}
@@ -377,10 +404,9 @@ export default function GoSystemPage() {
       {/* Go Images Tab */}
       {activeTab === 'images' && (
         <div className="space-y-6">
-          {/* Upload Form */}
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Upload New Go Image</h2>
-            <p className="mb-4 text-sm text-gray-500">Image will be auto-split into tiles for canvas reassembly (looks like video thumbnail)</p>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Upload Go Image — {currentTenant?.hostname}</h2>
+            <p className="mb-4 text-sm text-gray-500">Image auto-split into tiles for canvas reassembly (video thumbnail look)</p>
             <form onSubmit={uploadImage} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Image File (JPG, PNG, WebP)</label>
@@ -418,16 +444,15 @@ export default function GoSystemPage() {
                 disabled={uploading}
                 className="rounded-lg bg-green-600 px-6 py-3 font-bold text-white shadow-lg transition hover:bg-green-700 disabled:opacity-50"
               >
-                {uploading ? 'Processing...' : '📤 Upload & Split Image'}
+                {uploading ? 'Processing...' : 'Upload & Split Image'}
               </button>
             </form>
           </div>
 
-          {/* Current Images */}
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Current Go Images ({images.length})</h2>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Images for {currentTenant?.hostname} ({images.length})</h2>
             {images.length === 0 ? (
-              <p className="text-sm text-gray-500">No images uploaded yet.</p>
+              <p className="text-sm text-gray-500">No images uploaded for this domain yet.</p>
             ) : (
               <div className="space-y-4">
                 {images.map((img) => (
@@ -458,9 +483,8 @@ export default function GoSystemPage() {
       {/* Ad Management Tab */}
       {activeTab === 'ads' && (
         <div className="space-y-6">
-          {/* Ads Visibility */}
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Ads Visibility</h2>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Ads for {currentTenant?.hostname}</h2>
             <div className="space-y-3">
               <label className="flex items-center gap-3">
                 <input
@@ -472,7 +496,7 @@ export default function GoSystemPage() {
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-900">All Users</span>
-                  <p className="text-xs text-gray-500">Ads will show to every visitor</p>
+                  <p className="text-xs text-gray-500">Ads sabko dikhenge</p>
                 </div>
               </label>
               <label className="flex items-center gap-3">
@@ -485,36 +509,9 @@ export default function GoSystemPage() {
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-900">/go Users Only</span>
-                  <p className="text-xs text-gray-500">Ads will only show to visitors who came through /go URL</p>
+                  <p className="text-xs text-gray-500">Sirf /go se aaye users ko ads dikhenge</p>
                 </div>
               </label>
-            </div>
-          </div>
-
-          {/* Global Head/Body Code */}
-          <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Global Ad Code</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Global Head Code</label>
-                <textarea
-                  value={settings.global_head_code || ''}
-                  onChange={(e) => updateSetting('global_head_code', e.target.value)}
-                  rows={5}
-                  className="w-full rounded-lg border px-3 py-2 font-mono text-xs"
-                  placeholder="Code injected into <head> (AdSense/AdX scripts, etc.)"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Global Body Code</label>
-                <textarea
-                  value={settings.global_body_code || ''}
-                  onChange={(e) => updateSetting('global_body_code', e.target.value)}
-                  rows={4}
-                  className="w-full rounded-lg border px-3 py-2 font-mono text-xs"
-                  placeholder="Code injected before </body>"
-                />
-              </div>
             </div>
           </div>
 
@@ -536,7 +533,7 @@ export default function GoSystemPage() {
                 onChange={(e) => updateSetting('header_ad_code', e.target.value)}
                 rows={4}
                 className="w-full rounded-lg border px-3 py-2 font-mono text-xs"
-                placeholder="Ad code HTML"
+                placeholder="Ad code HTML (banner above quiz)"
               />
             </div>
           </div>
@@ -552,7 +549,7 @@ export default function GoSystemPage() {
                   onChange={(e) => updateSetting('in_content_1_enabled', e.target.checked ? '1' : '0')}
                   className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                 />
-                <span className="text-sm font-medium text-gray-700">Enable in-content ad after 3rd paragraph</span>
+                <span className="text-sm font-medium text-gray-700">Enable in-content ad</span>
               </label>
               <textarea
                 value={settings.in_content_1_code || ''}
@@ -575,7 +572,7 @@ export default function GoSystemPage() {
                   onChange={(e) => updateSetting('in_content_2_enabled', e.target.checked ? '1' : '0')}
                   className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                 />
-                <span className="text-sm font-medium text-gray-700">Enable in-content ad after 6th paragraph</span>
+                <span className="text-sm font-medium text-gray-700">Enable in-content ad 2</span>
               </label>
               <textarea
                 value={settings.in_content_2_code || ''}
@@ -633,12 +630,39 @@ export default function GoSystemPage() {
             </div>
           </div>
 
+          {/* Global Head/Body Code */}
+          <div className="rounded-xl border bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Global Code Injection</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Head Code (for this domain)</label>
+                <textarea
+                  value={settings.global_head_code || ''}
+                  onChange={(e) => updateSetting('global_head_code', e.target.value)}
+                  rows={5}
+                  className="w-full rounded-lg border px-3 py-2 font-mono text-xs"
+                  placeholder="Code injected into <head> (AdSense/AdX scripts, etc.)"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Body Code (for this domain)</label>
+                <textarea
+                  value={settings.global_body_code || ''}
+                  onChange={(e) => updateSetting('global_body_code', e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border px-3 py-2 font-mono text-xs"
+                  placeholder="Code injected before </body>"
+                />
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={saveSettings}
             disabled={saving}
             className="rounded-lg bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg transition hover:bg-indigo-700 disabled:opacity-50"
           >
-            {saving ? 'Saving...' : '💾 Save Ad Settings'}
+            {saving ? 'Saving...' : 'Save Ad Settings'}
           </button>
         </div>
       )}
@@ -647,52 +671,48 @@ export default function GoSystemPage() {
       {activeTab === 'advanced' && (
         <div className="space-y-6">
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Go URLs (Per Domain)</h2>
-            <p className="mb-4 text-sm text-gray-500">Har domain ki apni /go URL hai. Share karo — visitor random quiz pe redirect hoga aur /go user mark ho jayega.</p>
-            {tenants.length === 0 ? (
-              <p className="text-sm text-gray-500">Koi domain register nahi hai. Tenants page se domain add karo.</p>
-            ) : (
-              <div className="space-y-3">
-                {tenants.filter(t => t.status === 'active').map((t) => (
-                  <div key={t.id} className="flex items-center justify-between rounded-lg border bg-gray-50 px-4 py-3">
-                    <div>
-                      <code className="rounded bg-indigo-50 px-2 py-1 text-sm font-bold text-indigo-700">
-                        https://{t.hostname}/go
-                      </code>
-                      <p className="mt-1 text-xs text-gray-500">{t.hostname} ke quiz pe redirect karega</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`https://${t.hostname}/go`)
-                        alert('Copied!')
-                      }}
-                      className="rounded-lg bg-indigo-100 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200"
-                    >
-                      Copy
-                    </button>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">All Domain Go URLs</h2>
+            <p className="mb-4 text-sm text-gray-500">Har domain ki apni /go URL hai — visitor random quiz pe redirect hoga.</p>
+            <div className="space-y-3">
+              {tenants.map((t) => (
+                <div key={t.id} className="flex items-center justify-between rounded-lg border bg-gray-50 px-4 py-3">
+                  <div>
+                    <code className="rounded bg-indigo-50 px-2 py-1 text-sm font-bold text-indigo-700">
+                      https://{t.hostname}/go
+                    </code>
+                    <p className="mt-1 text-xs text-gray-500">{t.category?.metaTitle || t.hostname}</p>
                   </div>
-                ))}
-              </div>
-            )}
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`https://${t.hostname}/go`)
+                      alert('Copied!')
+                    }}
+                    className="rounded-lg bg-indigo-100 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200"
+                  >
+                    Copy
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-bold text-gray-900">How It Works</h2>
             <div className="rounded-lg bg-gray-50 p-4">
               <ol className="list-inside list-decimal space-y-2 text-sm text-gray-700">
-                <li><strong>User visits /go</strong> → random quiz page pe redirect + <code className="rounded bg-gray-200 px-1 text-xs">_t=1</code> cookie set</li>
-                <li><strong>Quiz page pe</strong> → Go image tiles load hoti hain (canvas reassembly + play button overlay)</li>
-                <li><strong>User clicks image</strong> → video loading animation (YouTube/Facebook/Buffer/TikTok style)</li>
-                <li><strong>Timer end hone pe</strong> → redirect to link URL (more ad impressions)</li>
+                <li><strong>User visits /go</strong> — random quiz pe redirect + <code className="rounded bg-gray-200 px-1 text-xs">_t=1</code> cookie set</li>
+                <li><strong>Quiz page pe</strong> — Go image tiles load (canvas reassembly + play button)</li>
+                <li><strong>User clicks image</strong> — video loading animation (YouTube/FB/Buffer/TikTok style)</li>
+                <li><strong>Timer end</strong> — redirect to link URL (more ad impressions)</li>
               </ol>
             </div>
           </div>
 
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Status</h2>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Status — {currentTenant?.hostname}</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="rounded-lg border bg-gray-50 p-3 text-center">
-                <p className="text-2xl font-bold text-indigo-600">{tenants.filter(t => t.status === 'active').length}</p>
+                <p className="text-2xl font-bold text-indigo-600">{tenants.length}</p>
                 <p className="text-xs text-gray-500">Active Domains</p>
               </div>
               <div className="rounded-lg border bg-gray-50 p-3 text-center">
