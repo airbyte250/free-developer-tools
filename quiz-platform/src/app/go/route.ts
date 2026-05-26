@@ -96,7 +96,8 @@ async function buildGoRedirect(request: NextRequest, hostname: string): Promise<
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || hostname
   const redirectUrl = `${proto}://${host}/quiz/${randomSlug}`
 
-  const response = NextResponse.redirect(redirectUrl, 302)
+  // Use 307 temporary redirect (browsers must not cache this)
+  const response = NextResponse.redirect(redirectUrl, 307)
 
   // Set _t cookie (marks user as coming from /go)
   response.cookies.set('_t', '1', {
@@ -105,9 +106,13 @@ async function buildGoRedirect(request: NextRequest, hostname: string): Promise<
     maxAge: 86400, // 24 hours
   })
 
-  // Disable caching
-  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0')
+  // Aggressively prevent ALL caching (browser + CDN + proxy)
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, private, max-age=0, s-maxage=0')
   response.headers.set('Pragma', 'no-cache')
+  response.headers.set('Expires', '0')
+  response.headers.set('Vary', '*')
+  response.headers.set('CDN-Cache-Control', 'no-store')
+  response.headers.set('Cloudflare-CDN-Cache-Control', 'no-store')
 
   return response
 }
