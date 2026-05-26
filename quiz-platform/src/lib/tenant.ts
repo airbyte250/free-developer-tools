@@ -6,10 +6,10 @@ export interface TenantConfig {
   hostname: string
   status: string
   categoryId: string
-  adClientId: string
-  bannerSlotId: string
-  interstitialSlotId: string
-  anchorSlotId: string
+  adClientId: string | null
+  bannerSlotId: string | null
+  interstitialSlotId: string | null
+  anchorSlotId: string | null
   analyticsId: string | null
   headerScript: string | null
   customBannerCode: string | null

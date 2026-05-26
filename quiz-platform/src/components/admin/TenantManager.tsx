@@ -14,11 +14,6 @@ interface Tenant {
   hostname: string
   status: string
   categoryId: string
-  adClientId: string
-  bannerSlotId: string
-  interstitialSlotId: string
-  anchorSlotId: string
-  analyticsId: string | null
   headerScript: string | null
   customBannerCode: string | null
   createdAt: string
@@ -44,11 +39,6 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
   const emptyForm = {
     hostname: '',
     categoryId: categories[0]?.id || '',
-    adClientId: '',
-    bannerSlotId: '',
-    interstitialSlotId: '',
-    anchorSlotId: '',
-    analyticsId: '',
     headerScript: '',
     customBannerCode: '',
     adsTxtLines: '',
@@ -61,11 +51,6 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
     setForm({
       hostname: tenant.hostname,
       categoryId: tenant.categoryId,
-      adClientId: tenant.adClientId,
-      bannerSlotId: tenant.bannerSlotId,
-      interstitialSlotId: tenant.interstitialSlotId,
-      anchorSlotId: tenant.anchorSlotId,
-      analyticsId: tenant.analyticsId || '',
       headerScript: tenant.headerScript || '',
       customBannerCode: tenant.customBannerCode || '',
       adsTxtLines: '',
@@ -283,75 +268,9 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
               </div>
             </div>
 
-            {/* Section 2: Ad Slot Configuration */}
+            {/* Section 2: Custom Banner Ad Code */}
             <div className="rounded-lg border border-gray-200 p-4">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">2. AdSense / AdX Slot IDs</h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Publisher ID (data-ad-client) *</label>
-                  <input
-                    type="text"
-                    placeholder="ca-pub-1234567890123456"
-                    value={form.adClientId}
-                    onChange={e => setForm(prev => ({ ...prev, adClientId: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-400">Your unique AdSense/AdX publisher ID — isolated per domain</p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Banner Ad Slot ID *</label>
-                  <input
-                    type="text"
-                    placeholder="1234567890"
-                    value={form.bannerSlotId}
-                    onChange={e => setForm(prev => ({ ...prev, bannerSlotId: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-400">Top & bottom banner ads</p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Interstitial Ad Slot ID *</label>
-                  <input
-                    type="text"
-                    placeholder="0987654321"
-                    value={form.interstitialSlotId}
-                    onChange={e => setForm(prev => ({ ...prev, interstitialSlotId: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-400">Step 4 loading screen (high CPM)</p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Anchor Ad Slot ID *</label>
-                  <input
-                    type="text"
-                    placeholder="1122334455"
-                    value={form.anchorSlotId}
-                    onChange={e => setForm(prev => ({ ...prev, anchorSlotId: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-400">Sticky bottom anchor ad</p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Google Analytics ID</label>
-                  <input
-                    type="text"
-                    placeholder="G-XXXXXXXXXX"
-                    value={form.analyticsId}
-                    onChange={e => setForm(prev => ({ ...prev, analyticsId: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">Optional: GA4 measurement ID</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Custom Banner Ad Code */}
-            <div className="rounded-lg border border-gray-200 p-4">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">3. Custom Banner Ad Code (Above Quiz)</h3>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">2. Custom Banner Ad Code (Above Quiz)</h3>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Banner Ad HTML Code</label>
                 <textarea
@@ -367,7 +286,7 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
 
             {/* Section 4: Custom Header Code */}
             <div className="rounded-lg border border-gray-200 p-4">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">4. Custom Header Code ({"<head>"})</h3>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">3. Custom Header Code ({"<head>"})</h3>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Header Scripts & Verification</label>
                 <textarea
@@ -384,7 +303,7 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
             {/* Section 5: Ads.txt */}
             {!editingTenant && (
               <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">5. Ads.txt Configuration</h3>
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">4. Ads.txt Configuration</h3>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Ads.txt Lines (one per line)</label>
                   <textarea
@@ -432,7 +351,7 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Domain</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Category</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Publisher ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Ads</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
               </tr>
             </thead>
@@ -457,7 +376,9 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
                       {tenant.status}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-xs font-mono text-gray-600">{tenant.adClientId}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-xs text-gray-600">
+                    {tenant.customBannerCode ? <span className="text-green-600 font-medium">Configured</span> : <span className="text-gray-400">Not set</span>}
+                  </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm">
                     <button
                       onClick={() => openEditForm(tenant)}
@@ -504,7 +425,7 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
         <h3 className="mb-2 text-sm font-bold text-blue-900">How Domain Setup Works</h3>
         <ol className="list-decimal list-inside space-y-1 text-xs text-blue-800">
           <li>Add your domain/subdomain above and select a quiz category</li>
-          <li>Configure your AdSense/AdX ad slots (publisher ID + slot IDs)</li>
+          <li>Paste your custom ad code (banner above quiz + header scripts for AdSense/GA)</li>
           <li>In Cloudflare → DNS: Add <strong>A Record</strong> pointing to <span className="font-mono font-bold">{serverIp}</span> (Proxy ON)</li>
           <li>In Cloudflare → SSL/TLS: Set mode to <strong>&quot;Full&quot;</strong> — this handles SSL automatically</li>
           <li>Domain goes live instantly — only the selected category&apos;s quizzes will appear</li>

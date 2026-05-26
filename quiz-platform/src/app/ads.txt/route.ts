@@ -12,7 +12,7 @@ export async function GET() {
 
   if (!tenant || tenant.adsTxt.length === 0) {
     // Default ads.txt with the tenant's publisher ID
-    if (tenant) {
+    if (tenant && tenant.adClientId) {
       const pubId = tenant.adClientId.replace('ca-pub-', '')
       const content = `google.com, pub-${pubId}, DIRECT, f08c47fec0942fa0`
       return new Response(content, {

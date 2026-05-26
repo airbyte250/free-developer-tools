@@ -39,9 +39,9 @@ export async function POST(request: NextRequest) {
     adsTxtLines,
   } = body
 
-  if (!hostname || !categoryId || !adClientId || !bannerSlotId || !interstitialSlotId || !anchorSlotId) {
+  if (!hostname || !categoryId) {
     return Response.json(
-      { error: 'Missing required fields: hostname, categoryId, adClientId, bannerSlotId, interstitialSlotId, anchorSlotId' },
+      { error: 'Missing required fields: hostname, categoryId' },
       { status: 400 }
     )
   }
@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
     data: {
       hostname,
       categoryId,
-      adClientId,
-      bannerSlotId,
-      interstitialSlotId,
-      anchorSlotId,
+      adClientId: adClientId || null,
+      bannerSlotId: bannerSlotId || null,
+      interstitialSlotId: interstitialSlotId || null,
+      anchorSlotId: anchorSlotId || null,
       analyticsId: analyticsId || null,
       headerScript: headerScript || null,
       customBannerCode: customBannerCode || null,

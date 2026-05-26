@@ -25,9 +25,9 @@ export default async function QuizPage() {
       quizzes={quizzes.map(q => ({ slug: q.slug, title: q.title, description: q.description }))}
       categoryTitle={config.category.metaTitle}
       categoryDescription={config.category.metaDescription}
-      adClientId={config.adClientId}
-      bannerSlotId={config.bannerSlotId}
-      anchorSlotId={config.anchorSlotId}
+      adClientId={config.adClientId || ''}
+      bannerSlotId={config.bannerSlotId || ''}
+      anchorSlotId={config.anchorSlotId || ''}
     />
   )
 }

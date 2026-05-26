@@ -12,10 +12,10 @@ model Tenant {
   hostname           String   @unique
   status             String   @default("active") // active, paused, pending_review
   categoryId         String   @map("category_id")
-  adClientId         String   @map("ad_client_id") // ca-pub-XXXXXXXXXXXXXXXX
-  bannerSlotId       String   @map("banner_slot_id")
-  interstitialSlotId String   @map("interstitial_slot_id")
-  anchorSlotId       String   @map("anchor_slot_id")
+  adClientId         String?  @map("ad_client_id") // ca-pub-XXXXXXXXXXXXXXXX (optional)
+  bannerSlotId       String?  @map("banner_slot_id")
+  interstitialSlotId String?  @map("interstitial_slot_id")
+  anchorSlotId       String?  @map("anchor_slot_id")
   analyticsId        String?  @map("analytics_id") // G-XXXXXX
   headerScript       String?  @map("header_script") // Custom header code (verification tags, meta, scripts)
   customBannerCode   String?  @map("custom_banner_code") // Custom banner ad HTML (above quiz)

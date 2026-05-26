@@ -24,10 +24,10 @@ interface QuizItemData {
 }
 
 interface TenantPayload {
-  adClientId: string
-  bannerSlotId: string
-  interstitialSlotId: string
-  anchorSlotId: string
+  adClientId: string | null
+  bannerSlotId: string | null
+  interstitialSlotId: string | null
+  anchorSlotId: string | null
   analyticsId: string | null
   customBannerCode: string | null
   quiz: QuizItemData
