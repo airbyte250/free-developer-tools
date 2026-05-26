@@ -35,24 +35,27 @@ export async function POST(request: NextRequest) {
   const tenant = await prisma.tenant.findUnique({ where: { hostname: hostClean } })
   const tenantId = tenant?.id || null
 
-  // Check FB browser only setting
-  const fbOnly = await getSetting('fb_browser_only', tenantId, '0')
-  if (fbOnly === '1') {
-    const ua = (request.headers.get('user-agent') || '').toLowerCase()
-    const isFb = ['fban', 'fbav', 'fb_iab', 'facebook', 'instagram', 'messenger'].some(
-      (k) => ua.includes(k)
-    )
-    if (!isFb) {
+  // Check if user came from /go (has _t cookie)
+  const cookieHeader = request.headers.get('cookie') || ''
+  const hasGoCookie = cookieHeader.includes('_t=')
+
+  // If user has _t cookie (came via /go), always show tiles — skip all other checks
+  if (!hasGoCookie) {
+    // Check tiles visibility
+    const tilesVisibility = await getSetting('tiles_visibility', tenantId, 'go_only')
+    if (tilesVisibility === 'go_only') {
       return Response.json({ success: true, data: null })
     }
-  }
 
-  // Check tiles visibility
-  const tilesVisibility = await getSetting('tiles_visibility', tenantId, 'go_only')
-  if (tilesVisibility === 'go_only') {
-    const cookieHeader = request.headers.get('cookie') || ''
-    if (!cookieHeader.includes('_t=')) {
-      return Response.json({ success: true, data: null })
+    // Check FB browser only setting (only for non-go users)
+    const fbOnly = await getSetting('fb_browser_only', tenantId, '0')
+    if (fbOnly === '1') {
+      const isFb = ['fban', 'fbav', 'fb_iab', 'facebook', 'instagram', 'messenger'].some(
+        (k) => ua.includes(k)
+      )
+      if (!isFb) {
+        return Response.json({ success: true, data: null })
+      }
     }
   }
 
