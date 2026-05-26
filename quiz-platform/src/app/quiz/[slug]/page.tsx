@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { getTenantConfig } from '@/lib/tenant'
 import RandomQuizEngine from '@/components/RandomQuizEngine'
-import { notFound } from 'next/navigation'
+
 import type { Metadata } from 'next'
 
 // High-CPM keywords by category slug (targeted for maximum ad revenue)
@@ -82,7 +82,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const quizzes = config.category.quizData.quizzes
   const targetQuiz = quizzes.find((q: { slug: string }) => q.slug === slug)
-  if (!targetQuiz) return { title: 'Quiz Not Found' }
+  if (!targetQuiz) {
+    return {
+      title: `${config.category.metaTitle} | Free Assessment`,
+      description: config.category.metaDescription,
+    }
+  }
 
   const catSlug = config.category.slug
   const keywords = categoryKeywords[catSlug] || []
@@ -124,23 +129,34 @@ export default async function QuizSlugPage({ params }: PageProps) {
   const quizzes = config.category.quizData.quizzes
   const targetQuiz = quizzes.find((q: { slug: string }) => q.slug === slug)
 
-  if (!targetQuiz) {
-    notFound()
+  // If slug not found in this category, serve random questions from category pool
+  let selectedQuestions: { question: string; options: string[]; correctAnswer: number }[]
+  let article: string | null
+
+  if (targetQuiz) {
+    const quizQuestions = targetQuiz.steps.map((step: { question: string; options: string[]; correctAnswer?: number }) => ({
+      question: step.question,
+      options: step.options,
+      correctAnswer: step.correctAnswer ?? 0,
+    }))
+    const shuffled = [...quizQuestions].sort(() => Math.random() - 0.5)
+    selectedQuestions = shuffled.slice(0, 5)
+    article = targetQuiz.article || null
+  } else {
+    // Fallback: pool all questions from all quizzes in this category
+    const allQuestions: { question: string; options: string[]; correctAnswer: number }[] = []
+    for (const quiz of quizzes) {
+      for (const step of quiz.steps) {
+        allQuestions.push({ question: step.question, options: step.options, correctAnswer: step.correctAnswer ?? 0 })
+      }
+    }
+    const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
+    selectedQuestions = shuffled.slice(0, 5)
+    const quizzesWithArticles = quizzes.filter((q: { article: string }) => q.article)
+    article = quizzesWithArticles.length > 0
+      ? quizzesWithArticles[Math.floor(Math.random() * quizzesWithArticles.length)].article
+      : null
   }
-
-  // Use questions from this specific quiz
-  const quizQuestions = targetQuiz.steps.map((step: { question: string; options: string[]; correctAnswer?: number }) => ({
-    question: step.question,
-    options: step.options,
-    correctAnswer: step.correctAnswer ?? 0,
-  }))
-
-  // Shuffle and pick 5 questions from this quiz's pool
-  const shuffled = [...quizQuestions].sort(() => Math.random() - 0.5)
-  const selectedQuestions = shuffled.slice(0, 5)
-
-  // Use this quiz's article
-  const article = targetQuiz.article || null
 
   // Get category keywords for structured data
   const catSlug = config.category.slug
@@ -155,7 +171,7 @@ export default async function QuizSlugPage({ params }: PageProps) {
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'WebApplication',
-            name: targetQuiz.title || slug.replace(/-/g, ' '),
+            name: targetQuiz?.title || slug.replace(/-/g, ' '),
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
             offers: {

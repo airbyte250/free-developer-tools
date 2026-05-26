@@ -125,12 +125,6 @@ export default async function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqData) }}
         />
-        {config?.headerScript && (
-          <script
-            id="tenant-header-script"
-            dangerouslySetInnerHTML={{ __html: `(function(){var c=document.createElement('div');c.innerHTML=${JSON.stringify(config.headerScript)};var h=document.head;while(c.firstChild){h.appendChild(c.firstChild);}})();` }}
-          />
-        )}
       </head>
       <body className="min-h-screen bg-gray-50 antialiased">
         {children}
