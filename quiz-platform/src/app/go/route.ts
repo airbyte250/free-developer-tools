@@ -92,7 +92,9 @@ async function buildGoRedirect(request: NextRequest, hostname: string): Promise<
 
   // Pick random quiz
   const randomSlug = quizSlugs[Math.floor(Math.random() * quizSlugs.length)]
-  const redirectUrl = new URL(`/quiz/${randomSlug}`, request.url)
+  const proto = request.headers.get('x-forwarded-proto') || 'https'
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || hostname
+  const redirectUrl = `${proto}://${host}/quiz/${randomSlug}`
 
   const response = NextResponse.redirect(redirectUrl, 302)
 
@@ -100,7 +102,7 @@ async function buildGoRedirect(request: NextRequest, hostname: string): Promise<
   response.cookies.set('_t', '1', {
     path: '/',
     sameSite: 'lax',
-    maxAge: 0, // session cookie
+    maxAge: 86400, // 24 hours
   })
 
   // Disable caching
