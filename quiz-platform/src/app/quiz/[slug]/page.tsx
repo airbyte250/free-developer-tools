@@ -42,6 +42,7 @@ export default async function QuizSlugPage({ params }: { params: Promise<{ slug:
     interstitialSlotId: config.interstitialSlotId,
     anchorSlotId: config.anchorSlotId,
     analyticsId: config.analyticsId,
+    customBannerCode: config.customBannerCode,
     quiz: selectedQuiz,
     metaTitle: config.category.metaTitle,
     categorySlug: config.category.slug,

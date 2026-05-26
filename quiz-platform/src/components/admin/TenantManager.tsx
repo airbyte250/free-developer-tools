@@ -20,6 +20,7 @@ interface Tenant {
   anchorSlotId: string
   analyticsId: string | null
   headerScript: string | null
+  customBannerCode: string | null
   createdAt: string
   category: Category
 }
@@ -27,14 +28,16 @@ interface Tenant {
 interface TenantManagerProps {
   initialTenants: Tenant[]
   categories: Category[]
+  serverIp: string
 }
 
-export default function TenantManager({ initialTenants, categories }: TenantManagerProps) {
+export default function TenantManager({ initialTenants, categories, serverIp }: TenantManagerProps) {
   const router = useRouter()
   const [tenants, setTenants] = useState<Tenant[]>(initialTenants)
   const [showForm, setShowForm] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
   const [loading, setLoading] = useState(false)
+  const [sslLoading, setSslLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -47,6 +50,7 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
     anchorSlotId: '',
     analyticsId: '',
     headerScript: '',
+    customBannerCode: '',
     adsTxtLines: '',
   }
 
@@ -63,6 +67,7 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
       anchorSlotId: tenant.anchorSlotId,
       analyticsId: tenant.analyticsId || '',
       headerScript: tenant.headerScript || '',
+      customBannerCode: tenant.customBannerCode || '',
       adsTxtLines: '',
     })
     setShowForm(true)
@@ -78,7 +83,6 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
 
     try {
       if (editingTenant) {
-        // Update existing
         const res = await fetch('/api/admin/tenants', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -95,7 +99,6 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
         setTenants(prev => prev.map(t => t.id === updated.id ? updated : t))
         setSuccess(`Tenant "${form.hostname}" updated successfully!`)
       } else {
-        // Create new
         const res = await fetch('/api/admin/tenants', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -112,7 +115,7 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
         }
         const tenant = await res.json()
         setTenants(prev => [tenant, ...prev])
-        setSuccess(`Domain "${form.hostname}" is now LIVE! Point its DNS A record to your server IP.`)
+        setSuccess(`Domain "${form.hostname}" is now LIVE! Point its DNS A record to ${serverIp}`)
       }
 
       setShowForm(false)
@@ -159,12 +162,54 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
     }
   }
 
+  const handleSSL = async (hostname: string) => {
+    setSslLoading(hostname)
+    try {
+      const res = await fetch('/api/admin/ssl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostname }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSuccess(`SSL certificate generated for ${hostname}!`)
+      } else {
+        setError(data.error || 'SSL provisioning failed. If using Cloudflare, SSL works automatically with "Full" mode.')
+      }
+    } catch {
+      setError('SSL request failed. If using Cloudflare proxy, SSL is handled automatically.')
+    } finally {
+      setSslLoading(null)
+    }
+  }
+
   return (
     <div>
-      {/* Success message */}
+      {/* Server IP Info Box */}
+      <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-xs">IP</div>
+          <div>
+            <p className="text-sm font-bold text-indigo-900">Server IP Address</p>
+            <p className="font-mono text-lg font-bold text-indigo-700">{serverIp}</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-xs text-indigo-600 font-medium">Cloudflare DNS Setup:</p>
+            <p className="text-xs text-indigo-800">A Record → <span className="font-mono font-bold">{serverIp}</span> (Proxy: ON)</p>
+            <p className="text-xs text-indigo-800">SSL Mode → <span className="font-bold">Full</span></p>
+          </div>
+        </div>
+      </div>
+
+      {/* Success/Error messages */}
       {success && (
         <div className="mb-4 rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">
           {success}
+        </div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+          {error}
         </div>
       )}
 
@@ -187,18 +232,27 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
           <p className="mb-6 text-sm text-gray-500">
             {editingTenant
               ? 'Update the configuration for this domain.'
-              : 'Add a domain or subdomain. Point its DNS A record to your server IP. It will start serving quizzes immediately.'
+              : `Add a domain or subdomain. Point DNS A record to ${serverIp}. It will start serving quizzes immediately.`
             }
           </p>
 
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
+          {/* DNS Instructions */}
+          {!editingTenant && (
+            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <h4 className="mb-2 text-sm font-bold text-amber-900">DNS Setup (Cloudflare)</h4>
+              <ol className="list-decimal list-inside space-y-1 text-xs text-amber-800">
+                <li>Go to Cloudflare → DNS → Add Record</li>
+                <li>Type: <span className="font-bold">A</span> | Name: <span className="font-bold">@</span> or subdomain | IP: <span className="font-mono font-bold">{serverIp}</span></li>
+                <li>Proxy status: <span className="font-bold">Proxied (Orange cloud ON)</span></li>
+                <li>SSL/TLS → Overview → Set to <span className="font-bold">&quot;Full&quot;</span></li>
+              </ol>
+            </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Section 1: Domain & Category */}
             <div className="rounded-lg border border-gray-200 p-4">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">Domain & Category</h3>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">1. Domain & Category</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Domain / Subdomain *</label>
@@ -210,7 +264,7 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                     required
                   />
-                  <p className="mt-1 text-xs text-gray-400">Point this domain&apos;s DNS A record to your server IP</p>
+                  <p className="mt-1 text-xs text-gray-400">Point A record to <span className="font-mono font-bold text-indigo-600">{serverIp}</span></p>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Quiz Category *</label>
@@ -229,9 +283,9 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
               </div>
             </div>
 
-            {/* Section 2: Ad Configuration */}
+            {/* Section 2: Ad Slot Configuration */}
             <div className="rounded-lg border border-gray-200 p-4">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">Ad Configuration (Google AdSense / AdX)</h3>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">2. AdSense / AdX Slot IDs</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-sm font-medium text-gray-700">Publisher ID (data-ad-client) *</label>
@@ -243,7 +297,7 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                     required
                   />
-                  <p className="mt-1 text-xs text-gray-400">Your unique AdSense/AdX publisher ID</p>
+                  <p className="mt-1 text-xs text-gray-400">Your unique AdSense/AdX publisher ID — isolated per domain</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Banner Ad Slot ID *</label>
@@ -295,26 +349,42 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
               </div>
             </div>
 
-            {/* Section 3: Header & Verification */}
+            {/* Section 3: Custom Banner Ad Code */}
             <div className="rounded-lg border border-gray-200 p-4">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">Header Scripts & Verification</h3>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">3. Custom Banner Ad Code (Above Quiz)</h3>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Custom Header Code</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Banner Ad HTML Code</label>
                 <textarea
-                  placeholder={'<!-- Google site verification -->\n<meta name="google-site-verification" content="..." />\n\n<!-- Any custom scripts for <head> -->\n<script>...</script>'}
-                  value={form.headerScript}
-                  onChange={e => setForm(prev => ({ ...prev, headerScript: e.target.value }))}
-                  rows={4}
+                  placeholder={'<!-- Custom banner ad code (shows above quiz) -->\n<ins class="adsbygoogle"\n  style="display:block"\n  data-ad-client="ca-pub-XXXXXX"\n  data-ad-slot="XXXXXX"\n  data-ad-format="auto"\n  data-full-width-responsive="true"></ins>\n<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>'}
+                  value={form.customBannerCode}
+                  onChange={e => setForm(prev => ({ ...prev, customBannerCode: e.target.value }))}
+                  rows={5}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2.5 font-mono text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                 />
-                <p className="mt-1 text-xs text-gray-400">HTML/scripts injected in &lt;head&gt; — verification tags, custom meta, third-party scripts</p>
+                <p className="mt-1 text-xs text-gray-400">Raw HTML/JS — displayed as banner ad directly above quiz questions</p>
               </div>
             </div>
 
-            {/* Section 4: Ads.txt */}
+            {/* Section 4: Custom Header Code */}
+            <div className="rounded-lg border border-gray-200 p-4">
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">4. Custom Header Code ({"<head>"})</h3>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Header Scripts & Verification</label>
+                <textarea
+                  placeholder={'<!-- Google site verification -->\n<meta name="google-site-verification" content="..." />\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXX"></script>\n<script>\nwindow.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag("js", new Date());\ngtag("config", "G-XXXXX");\n</script>\n\n<!-- AdSense Auto Ads -->\n<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXX" crossorigin="anonymous"></script>'}
+                  value={form.headerScript}
+                  onChange={e => setForm(prev => ({ ...prev, headerScript: e.target.value }))}
+                  rows={6}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 font-mono text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-400">Injected in &lt;head&gt; — verification meta tags, GA code, AdSense auto-ads script, etc.</p>
+              </div>
+            </div>
+
+            {/* Section 5: Ads.txt */}
             {!editingTenant && (
               <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">Ads.txt Configuration</h3>
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">5. Ads.txt Configuration</h3>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Ads.txt Lines (one per line)</label>
                   <textarea
@@ -391,13 +461,20 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
                   <td className="whitespace-nowrap px-6 py-4 text-sm">
                     <button
                       onClick={() => openEditForm(tenant)}
-                      className="mr-3 text-indigo-600 hover:text-indigo-800 font-medium"
+                      className="mr-2 text-indigo-600 hover:text-indigo-800 font-medium"
                     >
                       Edit
                     </button>
                     <button
+                      onClick={() => handleSSL(tenant.hostname)}
+                      disabled={sslLoading === tenant.hostname}
+                      className="mr-2 text-emerald-600 hover:text-emerald-800 font-medium disabled:opacity-50"
+                    >
+                      {sslLoading === tenant.hostname ? 'SSL...' : 'SSL'}
+                    </button>
+                    <button
                       onClick={() => handleStatusToggle(tenant)}
-                      className="mr-3 text-blue-600 hover:text-blue-800 font-medium"
+                      className="mr-2 text-blue-600 hover:text-blue-800 font-medium"
                     >
                       {tenant.status === 'active' ? 'Pause' : 'Activate'}
                     </button>
@@ -424,14 +501,22 @@ export default function TenantManager({ initialTenants, categories }: TenantMana
 
       {/* Help section */}
       <div className="mt-6 rounded-xl bg-blue-50 border border-blue-100 p-5">
-        <h3 className="mb-2 text-sm font-bold text-blue-900">How it works</h3>
+        <h3 className="mb-2 text-sm font-bold text-blue-900">How Domain Setup Works</h3>
         <ol className="list-decimal list-inside space-y-1 text-xs text-blue-800">
           <li>Add your domain/subdomain above and select a quiz category</li>
           <li>Configure your AdSense/AdX ad slots (publisher ID + slot IDs)</li>
-          <li>Point the domain&apos;s DNS A record to your server IP</li>
+          <li>In Cloudflare → DNS: Add <strong>A Record</strong> pointing to <span className="font-mono font-bold">{serverIp}</span> (Proxy ON)</li>
+          <li>In Cloudflare → SSL/TLS: Set mode to <strong>&quot;Full&quot;</strong> — this handles SSL automatically</li>
           <li>Domain goes live instantly — only the selected category&apos;s quizzes will appear</li>
-          <li>Each domain has isolated ads — no shared ad codes between tenants</li>
+          <li>Each domain has completely isolated ads — no shared ad codes between tenants</li>
         </ol>
+        <div className="mt-3 rounded-lg bg-white border border-blue-200 p-3">
+          <p className="text-xs font-bold text-blue-900 mb-1">SSL Options:</p>
+          <ul className="list-disc list-inside text-xs text-blue-800 space-y-0.5">
+            <li><strong>Cloudflare (recommended):</strong> Set SSL mode to &quot;Full&quot; — automatic, no server config needed</li>
+            <li><strong>Direct (no Cloudflare):</strong> Click &quot;SSL&quot; button in Actions to auto-generate Let&apos;s Encrypt certificate</li>
+          </ul>
+        </div>
       </div>
     </div>
   )

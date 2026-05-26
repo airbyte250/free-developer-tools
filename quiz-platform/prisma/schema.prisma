@@ -18,6 +18,7 @@ model Tenant {
   anchorSlotId       String   @map("anchor_slot_id")
   analyticsId        String?  @map("analytics_id") // G-XXXXXX
   headerScript       String?  @map("header_script") // Custom header code (verification tags, meta, scripts)
+  customBannerCode   String?  @map("custom_banner_code") // Custom banner ad HTML (above quiz)
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

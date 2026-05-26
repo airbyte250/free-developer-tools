@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+const SERVER_IP = process.env.SERVER_PUBLIC_IP || '65.108.197.200'
+
 export default async function TenantsPage() {
   const [tenants, categories] = await Promise.all([
     prisma.tenant.findMany({
@@ -18,6 +20,7 @@ export default async function TenantsPage() {
       <TenantManager
         initialTenants={JSON.parse(JSON.stringify(tenants))}
         categories={JSON.parse(JSON.stringify(categories))}
+        serverIp={SERVER_IP}
       />
     </div>
   )

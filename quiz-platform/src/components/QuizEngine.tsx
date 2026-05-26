@@ -29,6 +29,7 @@ interface TenantPayload {
   interstitialSlotId: string
   anchorSlotId: string
   analyticsId: string | null
+  customBannerCode: string | null
   quiz: QuizItemData
   metaTitle: string
   categorySlug: string
@@ -180,6 +181,11 @@ function QuizContent({ tenantPayload, initialStep = 1 }: QuizEngineProps) {
     return (
       <div className="min-h-screen bg-gray-50 pb-16">
         <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
+        {tenantPayload?.customBannerCode && mounted && (
+          <div className="mx-auto max-w-2xl px-4 pt-4">
+            <div dangerouslySetInnerHTML={{ __html: tenantPayload.customBannerCode }} />
+          </div>
+        )}
         <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
           {/* Result Card */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
@@ -265,6 +271,13 @@ function QuizContent({ tenantPayload, initialStep = 1 }: QuizEngineProps) {
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
       <TopBannerAd tenantPayload={tenantPayload} mounted={mounted} />
+
+      {/* Custom Banner Ad Code - above quiz */}
+      {tenantPayload?.customBannerCode && mounted && (
+        <div className="mx-auto max-w-2xl px-4 pt-4">
+          <div dangerouslySetInnerHTML={{ __html: tenantPayload.customBannerCode }} />
+        </div>
+      )}
 
       <div className="mx-auto max-w-2xl px-4 py-6 md:py-10">
         {/* Quiz Header */}

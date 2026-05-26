@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
     anchorSlotId,
     analyticsId,
     headerScript,
+    customBannerCode,
     adsTxtLines,
   } = body
 
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       anchorSlotId,
       analyticsId: analyticsId || null,
       headerScript: headerScript || null,
+      customBannerCode: customBannerCode || null,
       adsTxt: adsTxtLines?.length
         ? {
             create: adsTxtLines.map((line: string) => ({ line })),
@@ -106,6 +108,7 @@ export async function PUT(request: NextRequest) {
       anchorSlotId: data.anchorSlotId,
       analyticsId: data.analyticsId || null,
       headerScript: data.headerScript !== undefined ? (data.headerScript || null) : undefined,
+      customBannerCode: data.customBannerCode !== undefined ? (data.customBannerCode || null) : undefined,
       status: data.status,
     },
     include: { category: true },
