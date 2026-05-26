@@ -126,17 +126,17 @@ export function GoTilesImage() {
     setTimeout(() => a.remove(), 100)
   }
 
-  if (!imageData || !tilesLoaded) return null
+  if (!imageData) return null
 
   const style = config?.y || 'youtube'
 
   return (
-    <div ref={containerRef} className="go-tiles-container" style={{ width: '100%', maxWidth: '640px', margin: '0', position: 'relative', cursor: 'pointer', overflow: 'hidden', borderRadius: '4px' }}>
+    <div ref={containerRef} className="go-tiles-container" style={{ width: '100%', maxWidth: '640px', margin: '0', position: 'relative', cursor: 'pointer', overflow: 'hidden', borderRadius: '4px', display: tilesLoaded ? 'block' : 'block' }}>
       <a href={imageData.link} onClick={handleClick} style={{ display: 'block', textDecoration: 'none' }}>
         <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9' }}>
           <canvas
             ref={canvasRef}
-            style={{ display: 'block', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, objectFit: 'cover' }}
+            style={{ display: 'block', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, objectFit: 'cover', opacity: tilesLoaded ? 1 : 0 }}
           />
           {/* Play button overlay */}
           {!showLoading && (

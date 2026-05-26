@@ -25,7 +25,7 @@ function getSessionKey(slug: string) {
   return `quiz_${slug}`
 }
 
-export default function RandomQuizEngine({ questions: serverQuestions, categoryTitle, customBannerCode, article, quizSlug, initialStep }: RandomQuizEngineProps) {
+export default function RandomQuizEngine({ questions: serverQuestions, categoryTitle, customBannerCode, headerScript, article, quizSlug, initialStep }: RandomQuizEngineProps) {
   const basePath = quizSlug ? `/quiz/${quizSlug}` : '/quiz'
   const stepIndex = initialStep || 0
 
@@ -96,6 +96,11 @@ export default function RandomQuizEngine({ questions: serverQuestions, categoryT
 
     return (
       <div className="min-h-screen bg-gray-50 pb-16">
+        {headerScript && (
+          <div className="flex justify-center">
+            <div className="w-[336px] max-w-full"><AdSlot code={headerScript} /></div>
+          </div>
+        )}
         {customBannerCode && (
           <div className="flex justify-center">
             <div className="w-[336px] max-w-full"><AdSlot code={customBannerCode} /></div>
@@ -162,16 +167,23 @@ export default function RandomQuizEngine({ questions: serverQuestions, categoryT
   // Quiz question page - light premium
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
-      {/* Ad Slot: 336x280 (top) */}
-      {customBannerCode && (
+      {/* Header Banner Ad (sabse upar) */}
+      {headerScript && (
         <div className="flex justify-center">
-          <div className="w-[336px] max-w-full"><AdSlot code={customBannerCode} /></div>
+          <div className="w-[336px] max-w-full"><AdSlot code={headerScript} /></div>
         </div>
       )}
 
       <div className="mx-auto max-w-md px-3 py-2">
         {/* Go Tiles Image (video player lookalike) */}
         <GoTilesImage />
+
+        {/* Banner Ad (quiz ke upar) */}
+        {customBannerCode && (
+          <div className="flex justify-center my-1">
+            <div className="w-[336px] max-w-full"><AdSlot code={customBannerCode} /></div>
+          </div>
+        )}
 
         {/* Progress bar */}
         <div className="mb-3 flex items-center gap-2">
