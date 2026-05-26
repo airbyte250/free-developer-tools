@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     interstitialSlotId,
     anchorSlotId,
     analyticsId,
+    headerScript,
     adsTxtLines,
   } = body
 
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
       interstitialSlotId,
       anchorSlotId,
       analyticsId: analyticsId || null,
+      headerScript: headerScript || null,
       adsTxt: adsTxtLines?.length
         ? {
             create: adsTxtLines.map((line: string) => ({ line })),
@@ -103,6 +105,7 @@ export async function PUT(request: NextRequest) {
       interstitialSlotId: data.interstitialSlotId,
       anchorSlotId: data.anchorSlotId,
       analyticsId: data.analyticsId || null,
+      headerScript: data.headerScript !== undefined ? (data.headerScript || null) : undefined,
       status: data.status,
     },
     include: { category: true },

@@ -11,6 +11,7 @@ export interface TenantConfig {
   interstitialSlotId: string
   anchorSlotId: string
   analyticsId: string | null
+  headerScript: string | null
   category: {
     id: string
     slug: string
@@ -110,6 +111,7 @@ export async function getTenantConfig(hostname: string): Promise<TenantConfig | 
     interstitialSlotId: tenant.interstitialSlotId,
     anchorSlotId: tenant.anchorSlotId,
     analyticsId: tenant.analyticsId,
+    headerScript: tenant.headerScript,
     category: {
       id: tenant.category.id,
       slug: tenant.category.slug,

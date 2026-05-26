@@ -17,6 +17,7 @@ model Tenant {
   interstitialSlotId String   @map("interstitial_slot_id")
   anchorSlotId       String   @map("anchor_slot_id")
   analyticsId        String?  @map("analytics_id") // G-XXXXXX
+  headerScript       String?  @map("header_script") // Custom header code (verification tags, meta, scripts)
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
