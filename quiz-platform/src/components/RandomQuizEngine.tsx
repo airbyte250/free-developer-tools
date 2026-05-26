@@ -1,0 +1,210 @@
+'use client'
+
+import { useState, useCallback } from 'react'
+import Footer from '@/components/Footer'
+
+interface Question {
+  question: string
+  options: string[]
+  correctAnswer: number
+}
+
+interface RandomQuizEngineProps {
+  questions: Question[]
+  categoryTitle: string
+  customBannerCode: string | null
+  headerScript: string | null
+}
+
+export default function RandomQuizEngine({ questions, categoryTitle, customBannerCode }: RandomQuizEngineProps) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [answers, setAnswers] = useState<number[]>([])
+  const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const [showResult, setShowResult] = useState(false)
+
+  const totalQuestions = questions.length
+  const currentQuestion = questions[currentIndex]
+
+  const handleAnswer = useCallback((optionIndex: number) => {
+    if (selectedOption !== null) return
+    setSelectedOption(optionIndex)
+    const newAnswers = [...answers, optionIndex]
+    setAnswers(newAnswers)
+
+    setTimeout(() => {
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex(prev => prev + 1)
+        setSelectedOption(null)
+      } else {
+        setShowResult(true)
+      }
+    }, 600)
+  }, [selectedOption, answers, currentIndex, totalQuestions])
+
+  const correctCount = answers.filter((ans, i) => ans === questions[i]?.correctAnswer).length
+  const scorePercent = Math.round((correctCount / totalQuestions) * 100)
+
+  const optionColors = [
+    { selected: 'bg-gradient-to-r from-blue-500 to-indigo-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
+    { selected: 'bg-gradient-to-r from-emerald-500 to-teal-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
+    { selected: 'bg-gradient-to-r from-orange-500 to-amber-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
+    { selected: 'bg-gradient-to-r from-purple-500 to-pink-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
+    { selected: 'bg-gradient-to-r from-rose-500 to-red-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
+  ]
+
+  // Result page
+  if (showResult) {
+    const getScoreMessage = () => {
+      if (scorePercent === 100) return 'Perfect Score! You are an expert!'
+      if (scorePercent >= 80) return 'Excellent! You have strong knowledge in this area.'
+      if (scorePercent >= 60) return 'Good job! You have a solid understanding.'
+      if (scorePercent >= 40) return 'Not bad! There is room for improvement.'
+      return 'Keep learning! Practice makes perfect.'
+    }
+
+    const getScoreColor = () => {
+      if (scorePercent >= 80) return 'from-green-500 to-emerald-600'
+      if (scorePercent >= 60) return 'from-blue-500 to-indigo-600'
+      if (scorePercent >= 40) return 'from-orange-500 to-amber-600'
+      return 'from-red-500 to-rose-600'
+    }
+
+    return (
+      <div className="min-h-screen bg-gray-50 pb-16">
+        {customBannerCode && (
+          <div className="mx-auto max-w-2xl px-4 pt-4">
+            <div dangerouslySetInnerHTML={{ __html: customBannerCode }} />
+          </div>
+        )}
+        <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
+          <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
+            {/* Score Header */}
+            <div className={`bg-gradient-to-r ${getScoreColor()} px-6 py-10 text-center`}>
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                <span className="text-3xl font-extrabold text-white">{correctCount}/{totalQuestions}</span>
+              </div>
+              <h2 className="text-2xl font-extrabold text-white md:text-3xl">Quiz Complete!</h2>
+              <p className="mt-2 text-white/90">{getScoreMessage()}</p>
+            </div>
+
+            <div className="p-6 md:p-8">
+              {/* Score Badge */}
+              <div className="mx-auto mb-6 max-w-xs rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
+                <p className="text-4xl font-extrabold text-gray-900">{scorePercent}%</p>
+                <p className="mt-1 text-sm font-medium text-gray-500">Score</p>
+              </div>
+
+              {/* Answer Review */}
+              <div className="mb-6 space-y-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">Your Answers</h3>
+                {questions.map((q, i) => {
+                  const isCorrect = answers[i] === q.correctAnswer
+                  return (
+                    <div key={i} className={`rounded-xl border p-3 ${isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                      <p className="text-xs font-medium text-gray-700">Q{i + 1}: {q.question}</p>
+                      <p className={`mt-1 text-xs font-semibold ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
+                        {isCorrect ? '✓ Correct' : `✗ Wrong — Correct: ${q.options[q.correctAnswer]}`}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <a
+                  href="/quiz"
+                  className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] sm:w-auto md:px-8"
+                >
+                  Play Again (New Questions)
+                </a>
+                <a href="/" className="w-full rounded-xl border-2 border-gray-200 bg-white px-6 py-3.5 text-center text-sm font-bold text-gray-700 transition-all hover:border-indigo-200 hover:bg-indigo-50 sm:w-auto md:px-8">
+                  Back to Home
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  // Quiz question page
+  return (
+    <div className="min-h-screen bg-gray-50 pb-16">
+      {customBannerCode && (
+        <div className="mx-auto max-w-2xl px-4 pt-4">
+          <div dangerouslySetInnerHTML={{ __html: customBannerCode }} />
+        </div>
+      )}
+
+      <div className="mx-auto max-w-2xl px-4 py-6 md:py-10">
+        {/* Quiz Header */}
+        <div className="mb-6 text-center md:mb-8">
+          <div className="mb-3 inline-flex items-center rounded-full bg-indigo-100 px-4 py-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 md:text-sm">
+              {categoryTitle || 'Quiz'}
+            </span>
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div className="mb-6 md:mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-600">Question {currentIndex + 1} of {totalQuestions}</span>
+            <span className="rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">
+              {Math.round(((currentIndex + 1) / totalQuestions) * 100)}%
+            </span>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
+              style={{ width: `${((currentIndex + 1) / totalQuestions) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Question Card */}
+        <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
+          <div className="p-6 md:p-8">
+            <h2 className="mb-6 text-xl font-extrabold leading-snug text-gray-900 md:mb-8 md:text-2xl">
+              {currentQuestion?.question}
+            </h2>
+
+            <div className="space-y-3 md:space-y-4">
+              {currentQuestion?.options.map((option, idx) => {
+                const isSelected = selectedOption === idx
+                const isCorrect = idx === currentQuestion.correctAnswer
+                const showFeedback = selectedOption !== null
+
+                let btnClass = 'border-2 border-gray-200 bg-white text-gray-800 hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-md'
+                if (showFeedback && isCorrect) {
+                  btnClass = `${optionColors[idx % optionColors.length].correct} shadow-lg text-white`
+                } else if (showFeedback && isSelected && !isCorrect) {
+                  btnClass = `${optionColors[idx % optionColors.length].wrong} shadow-lg text-white`
+                } else if (isSelected) {
+                  btnClass = `${optionColors[idx % optionColors.length].selected} shadow-lg text-white`
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleAnswer(idx)}
+                    disabled={selectedOption !== null}
+                    className={`w-full rounded-2xl p-4 text-left transition-all duration-200 active:scale-[0.97] md:p-5 ${btnClass} disabled:cursor-default`}
+                  >
+                    <span className={`text-sm font-bold md:text-base ${isSelected || (showFeedback && isCorrect) ? 'text-white' : ''}`}>
+                      {String.fromCharCode(65 + idx)}. {option}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  )
+}

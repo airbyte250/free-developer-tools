@@ -189,67 +189,118 @@ function LandingPage() {
 function TenantHomePage({ hostname, config }: { hostname: string; config: Awaited<ReturnType<typeof getTenantConfig>> }) {
   const displayName = hostname.replace(/^www\./, '').split('.')[0]
   const capitalizedName = displayName.charAt(0).toUpperCase() + displayName.slice(1)
+  const categorySlug = config?.category.slug || ''
+  const totalQuizzes = config?.category.quizData.quizzes.length || 0
+
+  // Category-specific colors and icons
+  const categoryThemes: Record<string, { gradient: string; icon: string; badge: string }> = {
+    'insurance': { gradient: 'from-blue-600 to-cyan-500', icon: '🛡️', badge: 'bg-blue-100 text-blue-800' },
+    'mortgage': { gradient: 'from-emerald-600 to-teal-500', icon: '🏠', badge: 'bg-emerald-100 text-emerald-800' },
+    'legal': { gradient: 'from-purple-600 to-indigo-500', icon: '⚖️', badge: 'bg-purple-100 text-purple-800' },
+    'crm': { gradient: 'from-orange-500 to-amber-500', icon: '📊', badge: 'bg-orange-100 text-orange-800' },
+    'financial': { gradient: 'from-green-600 to-emerald-500', icon: '💰', badge: 'bg-green-100 text-green-800' },
+    'cyber': { gradient: 'from-red-600 to-pink-500', icon: '🔒', badge: 'bg-red-100 text-red-800' },
+    'cloud': { gradient: 'from-sky-600 to-blue-500', icon: '☁️', badge: 'bg-sky-100 text-sky-800' },
+    'marketing': { gradient: 'from-pink-600 to-rose-500', icon: '📈', badge: 'bg-pink-100 text-pink-800' },
+    'health': { gradient: 'from-teal-600 to-cyan-500', icon: '🏥', badge: 'bg-teal-100 text-teal-800' },
+    'business': { gradient: 'from-indigo-600 to-violet-500', icon: '📉', badge: 'bg-indigo-100 text-indigo-800' },
+  }
+
+  const themeKey = Object.keys(categoryThemes).find(k => categorySlug.includes(k)) || 'crm'
+  const theme = categoryThemes[themeKey]
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">{capitalizedName}</h1>
-          <p className="mt-1 text-sm text-gray-500">Enterprise Assessment Platform</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header with Logo */}
+      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${theme.gradient} text-xl shadow-lg`}>
+              {theme.icon}
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">{capitalizedName}</h1>
+              <p className="text-xs text-gray-500">Professional Assessment Platform</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`hidden rounded-full px-3 py-1 text-xs font-semibold sm:inline-flex ${theme.badge}`}>
+              {totalQuizzes}+ Questions
+            </span>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
-            {config?.category.metaTitle || 'Discover Your Enterprise Potential'}
+      {/* Hero Section */}
+      <section className="relative overflow-hidden px-4 py-16 md:py-24">
+        <div className="absolute inset-0 -z-10">
+          <div className={`absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-gradient-to-br ${theme.gradient} opacity-5 blur-3xl`} />
+        </div>
+        <div className="mx-auto max-w-3xl text-center">
+          <div className={`mb-6 inline-flex items-center gap-2 rounded-full ${theme.badge} px-4 py-2 text-sm font-semibold`}>
+            <span className="h-2 w-2 animate-pulse rounded-full bg-current" />
+            Free Professional Assessment
+          </div>
+          <h2 className="text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl md:text-5xl">
+            {config?.category.metaTitle || 'Professional Assessment Tool'}
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">
-            {config?.category.metaDescription || 'Take our comprehensive assessment to evaluate your business infrastructure, optimize ROI, and unlock growth opportunities.'}
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-gray-600 md:text-lg">
+            {config?.category.metaDescription || 'Take our comprehensive assessment to evaluate your expertise and get personalized recommendations.'}
           </p>
+
+          {/* CTA Button */}
           <div className="mt-10">
             <Link
-              href="/quiz?step=1"
-              className="inline-flex items-center rounded-lg bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl"
+              href="/quiz"
+              className={`inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r ${theme.gradient} px-10 py-5 text-lg font-bold text-white shadow-2xl transition-all hover:scale-105 hover:shadow-3xl active:scale-[0.98]`}
             >
-              Start Free Assessment
-              <svg className="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              Start Quiz Now
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Link>
+            <p className="mt-4 text-sm text-gray-500">5 random questions • Real-time scoring • Takes 60 seconds</p>
           </div>
         </div>
+      </section>
 
-        <div className="mt-20 grid grid-cols-1 gap-8 sm:grid-cols-3">
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-              <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+      {/* Features Grid */}
+      <section className="mx-auto max-w-5xl px-4 pb-16">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${theme.gradient} text-white shadow-md`}>
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">Enterprise Grade</h3>
-            <p className="mt-2 text-sm text-gray-600">Built for scale with industry-leading security standards</p>
+            <h3 className="text-base font-bold text-gray-900">Random Questions</h3>
+            <p className="mt-2 text-sm text-gray-600">5 questions randomly selected from our pool of {totalQuizzes}+ — every attempt is unique</p>
           </div>
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${theme.gradient} text-white shadow-md`}>
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">Instant Results</h3>
-            <p className="mt-2 text-sm text-gray-600">Get actionable insights in under 60 seconds</p>
+            <h3 className="text-base font-bold text-gray-900">Real Scoring</h3>
+            <p className="mt-2 text-sm text-gray-600">Get your actual score based on correct answers — no fake results</p>
           </div>
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-              <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${theme.gradient} text-white shadow-md`}>
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">Data Secure</h3>
-            <p className="mt-2 text-sm text-gray-600">Your responses are encrypted and never shared</p>
+            <h3 className="text-base font-bold text-gray-900">60 Seconds</h3>
+            <p className="mt-2 text-sm text-gray-600">Quick assessment — test your knowledge in under a minute</p>
           </div>
         </div>
-      </main>
+      </section>
+
+      {/* SEO Content */}
+      <section className="mx-auto max-w-4xl px-4 pb-16">
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+          <h3 className="mb-4 text-xl font-bold text-gray-900">About This Assessment</h3>
+          <div className="prose prose-sm max-w-none text-gray-600">
+            <p>Our {config?.category.metaTitle || 'professional assessment'} uses scientifically validated question pools covering key industry domains. Each session presents 5 randomly selected questions from our database of {totalQuizzes}+ expert-curated items.</p>
+            <p className="mt-3">Whether you&#39;re a seasoned professional or exploring a new field, this assessment provides instant feedback on your knowledge level with personalized improvement recommendations.</p>
+          </div>
+        </div>
+      </section>
 
       <Footer />
 
@@ -260,7 +311,7 @@ function TenantHomePage({ hostname, config }: { hostname: string; config: Awaite
             '@context': 'https://schema.org',
             '@type': 'WebApplication',
             name: config?.category.metaTitle || capitalizedName,
-            description: config?.category.metaDescription || 'Enterprise Assessment Platform',
+            description: config?.category.metaDescription || 'Professional Assessment Platform',
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
             offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },

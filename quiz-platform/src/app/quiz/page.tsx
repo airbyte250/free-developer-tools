@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { getTenantConfig } from '@/lib/tenant'
-import QuizListing from '@/components/QuizListing'
+import RandomQuizEngine from '@/components/RandomQuizEngine'
 
 export default async function QuizPage() {
   const headersList = await headers()
@@ -18,16 +18,30 @@ export default async function QuizPage() {
     )
   }
 
+  // Collect ALL questions from all quizzes in this category into one pool
+  const allQuestions: { question: string; options: string[]; correctAnswer: number }[] = []
   const quizzes = config.category.quizData.quizzes
 
+  for (const quiz of quizzes) {
+    for (const step of quiz.steps) {
+      allQuestions.push({
+        question: step.question,
+        options: step.options,
+        correctAnswer: step.correctAnswer ?? 0,
+      })
+    }
+  }
+
+  // Randomly select 5 questions (shuffle and pick)
+  const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
+  const selectedQuestions = shuffled.slice(0, 5)
+
   return (
-    <QuizListing
-      quizzes={quizzes.map(q => ({ slug: q.slug, title: q.title, description: q.description }))}
+    <RandomQuizEngine
+      questions={selectedQuestions}
       categoryTitle={config.category.metaTitle}
-      categoryDescription={config.category.metaDescription}
-      adClientId={config.adClientId || ''}
-      bannerSlotId={config.bannerSlotId || ''}
-      anchorSlotId={config.anchorSlotId || ''}
+      customBannerCode={config.customBannerCode}
+      headerScript={config.headerScript}
     />
   )
 }

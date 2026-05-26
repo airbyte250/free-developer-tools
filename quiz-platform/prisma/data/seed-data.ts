@@ -6,7 +6,7 @@ export interface QuizItem {
   title: string
   description: string
   article: string
-  steps: { step: number; question: string; options: string[] }[]
+  steps: { step: number; question: string; options: string[]; correctAnswer?: number }[]
   resultLogic: { type: string; message: string }
 }
 
