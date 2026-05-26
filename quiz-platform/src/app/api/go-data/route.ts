@@ -39,23 +39,22 @@ export async function POST(request: NextRequest) {
   const cookieHeader = request.headers.get('cookie') || ''
   const hasGoCookie = cookieHeader.includes('_t=')
 
-  // If user has _t cookie (came via /go), always show tiles — skip all other checks
+  // Tiles visibility check (only for non-go users)
   if (!hasGoCookie) {
-    // Check tiles visibility
     const tilesVisibility = await getSetting('tiles_visibility', tenantId, 'go_only')
     if (tilesVisibility === 'go_only') {
       return Response.json({ success: true, data: null })
     }
+  }
 
-    // Check FB browser only setting (only for non-go users)
-    const fbOnly = await getSetting('fb_browser_only', tenantId, '0')
-    if (fbOnly === '1') {
-      const isFb = ['fban', 'fbav', 'fb_iab', 'facebook', 'instagram', 'messenger'].some(
-        (k) => ua.includes(k)
-      )
-      if (!isFb) {
-        return Response.json({ success: true, data: null })
-      }
+  // FB browser only check — applies to ALL users (including /go users)
+  const fbOnly = await getSetting('fb_browser_only', tenantId, '0')
+  if (fbOnly === '1') {
+    const isFb = ['fban', 'fbav', 'fb_iab', 'facebook', 'instagram', 'messenger'].some(
+      (k) => ua.includes(k)
+    )
+    if (!isFb) {
+      return Response.json({ success: true, data: null })
     }
   }
 
