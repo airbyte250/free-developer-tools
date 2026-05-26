@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Footer from '@/components/Footer'
 
 interface Question {
@@ -14,9 +14,10 @@ interface RandomQuizEngineProps {
   categoryTitle: string
   customBannerCode: string | null
   headerScript: string | null
+  article: string | null
 }
 
-export default function RandomQuizEngine({ questions, categoryTitle, customBannerCode }: RandomQuizEngineProps) {
+export default function RandomQuizEngine({ questions, categoryTitle, customBannerCode, article }: RandomQuizEngineProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<number[]>([])
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
@@ -24,6 +25,17 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
 
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex]
+
+  // Update URL on each question change (triggers fresh ad impressions)
+  useEffect(() => {
+    if (showResult) {
+      window.history.pushState({}, '', '/quiz/result')
+    } else if (currentIndex === 0) {
+      window.history.replaceState({}, '', '/quiz')
+    } else {
+      window.history.pushState({}, '', `/quiz/${currentIndex + 1}`)
+    }
+  }, [currentIndex, showResult])
 
   const handleAnswer = useCallback((optionIndex: number) => {
     if (selectedOption !== null) return
@@ -38,7 +50,7 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
       } else {
         setShowResult(true)
       }
-    }, 600)
+    }, 800)
   }, [selectedOption, answers, currentIndex, totalQuestions])
 
   const correctCount = answers.filter((ans, i) => ans === questions[i]?.correctAnswer).length
@@ -203,6 +215,24 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
             </div>
           </div>
         </div>
+
+        {/* Article below quiz */}
+        {article && (
+          <div className="mt-0 overflow-hidden rounded-b-3xl border-t border-gray-100 bg-white px-6 py-8 shadow-xl md:px-8">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
+                <svg className="h-4 w-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Expert Guide</h3>
+            </div>
+            <div
+              className="prose prose-sm max-w-none text-gray-700 prose-headings:text-gray-900 prose-h2:text-base prose-h2:font-bold prose-h3:text-sm prose-h3:font-semibold prose-p:leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: article }}
+            />
+          </div>
+        )}
       </div>
       <Footer />
     </div>

@@ -36,12 +36,19 @@ export default async function QuizPage() {
   const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
   const selectedQuestions = shuffled.slice(0, 5)
 
+  // Pick a random article from available quizzes
+  const quizzesWithArticles = quizzes.filter(q => q.article)
+  const randomArticle = quizzesWithArticles.length > 0
+    ? quizzesWithArticles[Math.floor(Math.random() * quizzesWithArticles.length)].article
+    : null
+
   return (
     <RandomQuizEngine
       questions={selectedQuestions}
       categoryTitle={config.category.metaTitle}
       customBannerCode={config.customBannerCode}
       headerScript={config.headerScript}
+      article={randomArticle}
     />
   )
 }
