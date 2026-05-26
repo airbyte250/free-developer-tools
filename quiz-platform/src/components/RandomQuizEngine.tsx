@@ -21,56 +21,71 @@ interface RandomQuizEngineProps {
   initialStep?: number
 }
 
-export default function RandomQuizEngine({ questions, categoryTitle, customBannerCode, article, quizSlug, initialStep }: RandomQuizEngineProps) {
-  const [currentIndex, setCurrentIndex] = useState(initialStep || 0)
+function getSessionKey(slug: string) {
+  return `quiz_${slug}`
+}
+
+export default function RandomQuizEngine({ questions: serverQuestions, categoryTitle, customBannerCode, article, quizSlug, initialStep }: RandomQuizEngineProps) {
+  const basePath = quizSlug ? `/quiz/${quizSlug}` : '/quiz'
+  const stepIndex = initialStep || 0
+
+  // Load questions from sessionStorage (for consistent questions across page loads)
+  const [questions, setQuestions] = useState<Question[]>(serverQuestions)
   const [answers, setAnswers] = useState<number[]>([])
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [showResult, setShowResult] = useState(false)
-
-  const totalQuestions = questions.length
-  const currentQuestion = questions[currentIndex]
-
-  const basePath = quizSlug ? `/quiz/${quizSlug}` : '/quiz'
+  const [storedArticle, setStoredArticle] = useState<string | null>(article)
 
   useEffect(() => {
-    if (showResult) {
-      window.history.pushState({}, '', `${basePath}/result`)
-    } else if (currentIndex === 0) {
-      window.history.replaceState({}, '', basePath)
-    } else {
-      window.history.pushState({}, '', `${basePath}/${currentIndex + 1}`)
+    const key = getSessionKey(quizSlug || 'default')
+    const stored = sessionStorage.getItem(key)
+
+    if (stepIndex === 0 && !window.location.pathname.includes('/result')) {
+      // First step: store fresh questions and article
+      sessionStorage.setItem(key, JSON.stringify({ questions: serverQuestions, answers: [], article }))
+      setQuestions(serverQuestions)
+      setStoredArticle(article)
+    } else if (stored) {
+      // Subsequent steps: read from sessionStorage
+      const data = JSON.parse(stored)
+      setQuestions(data.questions)
+      setAnswers(data.answers || [])
+      setStoredArticle(data.article || article)
+      if (window.location.pathname.includes('/result')) {
+        setShowResult(true)
+      }
     }
-  }, [currentIndex, showResult, basePath])
+  }, [])
+
+  const totalQuestions = questions.length
+  const currentQuestion = questions[stepIndex]
 
   const handleAnswer = useCallback((optionIndex: number) => {
     if (selectedOption !== null) return
     setSelectedOption(optionIndex)
-    const newAnswers = [...answers, optionIndex]
-    setAnswers(newAnswers)
 
+    // Save answer to sessionStorage
+    const key = getSessionKey(quizSlug || 'default')
+    const stored = sessionStorage.getItem(key)
+    const data = stored ? JSON.parse(stored) : { questions: serverQuestions, answers: [], article }
+    data.answers = [...(data.answers || []), optionIndex]
+    sessionStorage.setItem(key, JSON.stringify(data))
+
+    // Navigate to next page after delay (full page reload = fresh ads)
     setTimeout(() => {
-      if (currentIndex < totalQuestions - 1) {
-        setCurrentIndex(prev => prev + 1)
-        setSelectedOption(null)
+      if (stepIndex < totalQuestions - 1) {
+        window.location.href = `${basePath}/${stepIndex + 2}`
       } else {
-        setShowResult(true)
+        window.location.href = `${basePath}/result`
       }
     }, 800)
-  }, [selectedOption, answers, currentIndex, totalQuestions])
-
-  const correctCount = answers.filter((ans, i) => ans === questions[i]?.correctAnswer).length
-  const scorePercent = Math.round((correctCount / totalQuestions) * 100)
-
-  const optionColors = [
-    { border: 'border-blue-500', bg: 'bg-blue-50', activeBg: 'bg-blue-500', text: 'text-blue-700' },
-    { border: 'border-emerald-500', bg: 'bg-emerald-50', activeBg: 'bg-emerald-500', text: 'text-emerald-700' },
-    { border: 'border-orange-500', bg: 'bg-orange-50', activeBg: 'bg-orange-500', text: 'text-orange-700' },
-    { border: 'border-purple-500', bg: 'bg-purple-50', activeBg: 'bg-purple-500', text: 'text-purple-700' },
-    { border: 'border-rose-500', bg: 'bg-rose-50', activeBg: 'bg-rose-500', text: 'text-rose-700' },
-  ]
+  }, [selectedOption, stepIndex, totalQuestions, basePath, quizSlug, serverQuestions, article])
 
   // Result page
   if (showResult) {
+    const correctCount = answers.filter((ans, i) => ans === questions[i]?.correctAnswer).length
+    const scorePercent = Math.round((correctCount / totalQuestions) * 100)
+
     const getScoreMessage = () => {
       if (scorePercent === 100) return 'Perfect Score! You are an expert!'
       if (scorePercent >= 80) return 'Excellent! Strong knowledge in this area.'
@@ -121,12 +136,12 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
           </div>
 
           {/* Article */}
-          {article && (
+          {storedArticle && (
             <div className="mt-0 rounded-b-2xl border border-t-0 border-gray-200 bg-white px-4 py-6 shadow-sm">
               <h3 className="mb-3 text-sm font-bold text-indigo-700">Expert Guide</h3>
               <div
                 className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-h2:text-sm prose-h2:font-bold prose-h3:text-xs prose-h3:font-semibold prose-p:text-xs prose-p:leading-relaxed prose-p:text-gray-600 prose-li:text-xs prose-li:text-gray-600"
-                dangerouslySetInnerHTML={{ __html: article }}
+                dangerouslySetInnerHTML={{ __html: storedArticle }}
               />
             </div>
           )}
@@ -136,10 +151,18 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
     )
   }
 
+  const optionColors = [
+    { border: 'border-blue-500', bg: 'bg-blue-50', activeBg: 'bg-blue-500', text: 'text-blue-700' },
+    { border: 'border-emerald-500', bg: 'bg-emerald-50', activeBg: 'bg-emerald-500', text: 'text-emerald-700' },
+    { border: 'border-orange-500', bg: 'bg-orange-50', activeBg: 'bg-orange-500', text: 'text-orange-700' },
+    { border: 'border-purple-500', bg: 'bg-purple-50', activeBg: 'bg-purple-500', text: 'text-purple-700' },
+    { border: 'border-rose-500', bg: 'bg-rose-50', activeBg: 'bg-rose-500', text: 'text-rose-700' },
+  ]
+
   // Quiz question page - light premium
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
-      {/* Ad Slot 1: 336x280 (top) */}
+      {/* Ad Slot: 336x280 (top) */}
       {customBannerCode && (
         <div className="flex justify-center">
           <div className="w-[336px] max-w-full"><AdSlot code={customBannerCode} /></div>
@@ -155,10 +178,10 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
             <div
               className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
-              style={{ width: `${((currentIndex + 1) / totalQuestions) * 100}%` }}
+              style={{ width: `${((stepIndex + 1) / totalQuestions) * 100}%` }}
             />
           </div>
-          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">{currentIndex + 1}/{totalQuestions}</span>
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">{stepIndex + 1}/{totalQuestions}</span>
         </div>
 
         {/* Question Card */}
@@ -200,12 +223,12 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
         </div>
 
         {/* Article below quiz - no gap */}
-        {article && (
+        {storedArticle && (
           <div className="rounded-b-2xl border border-t-0 border-gray-200 bg-white px-4 py-6 shadow-sm">
             <h3 className="mb-3 text-sm font-bold text-indigo-700">Expert Guide</h3>
             <div
               className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-h2:text-sm prose-h2:font-bold prose-h3:text-xs prose-h3:font-semibold prose-p:text-xs prose-p:leading-relaxed prose-p:text-gray-600 prose-li:text-xs prose-li:text-gray-600"
-              dangerouslySetInnerHTML={{ __html: article }}
+              dangerouslySetInnerHTML={{ __html: storedArticle }}
             />
           </div>
         )}
