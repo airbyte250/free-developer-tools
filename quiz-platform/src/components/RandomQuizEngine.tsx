@@ -16,10 +16,12 @@ interface RandomQuizEngineProps {
   customBannerCode: string | null
   headerScript: string | null
   article: string | null
+  quizSlug?: string
+  initialStep?: number
 }
 
-export default function RandomQuizEngine({ questions, categoryTitle, customBannerCode, article }: RandomQuizEngineProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+export default function RandomQuizEngine({ questions, categoryTitle, customBannerCode, article, quizSlug, initialStep }: RandomQuizEngineProps) {
+  const [currentIndex, setCurrentIndex] = useState(initialStep || 0)
   const [answers, setAnswers] = useState<number[]>([])
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [showResult, setShowResult] = useState(false)
@@ -27,16 +29,19 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex]
 
+  // Base path for URL navigation
+  const basePath = quizSlug ? `/quiz/${quizSlug}` : '/quiz'
+
   // Update URL on each question change (triggers fresh ad impressions)
   useEffect(() => {
     if (showResult) {
-      window.history.pushState({}, '', '/quiz/result')
+      window.history.pushState({}, '', `${basePath}/result`)
     } else if (currentIndex === 0) {
-      window.history.replaceState({}, '', '/quiz')
+      window.history.replaceState({}, '', basePath)
     } else {
-      window.history.pushState({}, '', `/quiz/${currentIndex + 1}`)
+      window.history.pushState({}, '', `${basePath}/${currentIndex + 1}`)
     }
-  }, [currentIndex, showResult])
+  }, [currentIndex, showResult, basePath])
 
   const handleAnswer = useCallback((optionIndex: number) => {
     if (selectedOption !== null) return
