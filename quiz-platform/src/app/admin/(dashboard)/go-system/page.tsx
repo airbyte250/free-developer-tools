@@ -14,9 +14,16 @@ interface GoImage {
   createdAt: string
 }
 
+interface TenantInfo {
+  id: string
+  hostname: string
+  active: boolean
+}
+
 export default function GoSystemPage() {
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [images, setImages] = useState<GoImage[]>([])
+  const [tenants, setTenants] = useState<TenantInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -29,12 +36,17 @@ export default function GoSystemPage() {
 
   async function loadData() {
     try {
-      const [settingsRes, imagesRes] = await Promise.all([
+      const [settingsRes, imagesRes, tenantsRes] = await Promise.all([
         fetch('/api/admin/go-settings'),
         fetch('/api/admin/go-images'),
+        fetch('/api/admin/tenants'),
       ])
       if (settingsRes.ok) setSettings(await settingsRes.json())
       if (imagesRes.ok) setImages(await imagesRes.json())
+      if (tenantsRes.ok) {
+        const tenantsData = await tenantsRes.json()
+        setTenants(tenantsData.map((t: { id: string; hostname: string; active: boolean }) => ({ id: t.id, hostname: t.hostname, active: t.active })))
+      }
     } catch (err) {
       console.error('Failed to load:', err)
     } finally {
@@ -635,43 +647,67 @@ export default function GoSystemPage() {
       {activeTab === 'advanced' && (
         <div className="space-y-6">
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Go URL Info</h2>
-            <p className="text-sm text-gray-700">
-              <strong>Go URL:</strong>{' '}
-              <code className="rounded bg-gray-100 px-2 py-0.5 text-indigo-700">{typeof window !== 'undefined' ? window.location.origin : ''}/go</code>
-            </p>
-            <p className="mt-2 text-xs text-gray-500">
-              Share this URL — visitors will be redirected to a random quiz and marked as /go users for ad targeting.
-            </p>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Go URLs (Per Domain)</h2>
+            <p className="mb-4 text-sm text-gray-500">Har domain ki apni /go URL hai. Share karo — visitor random quiz pe redirect hoga aur /go user mark ho jayega.</p>
+            {tenants.length === 0 ? (
+              <p className="text-sm text-gray-500">Koi domain register nahi hai. Tenants page se domain add karo.</p>
+            ) : (
+              <div className="space-y-3">
+                {tenants.filter(t => t.active).map((t) => (
+                  <div key={t.id} className="flex items-center justify-between rounded-lg border bg-gray-50 px-4 py-3">
+                    <div>
+                      <code className="rounded bg-indigo-50 px-2 py-1 text-sm font-bold text-indigo-700">
+                        https://{t.hostname}/go
+                      </code>
+                      <p className="mt-1 text-xs text-gray-500">{t.hostname} ke quiz pe redirect karega</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://${t.hostname}/go`)
+                        alert('Copied!')
+                      }}
+                      className="rounded-lg bg-indigo-100 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Frontend Tile Injection</h2>
-            <p className="text-sm text-gray-700">
-              Go images are automatically injected on quiz pages for users coming from /go URL.
-              The image appears as a video thumbnail with play button overlay.
-              When clicked, a loading animation plays before redirecting to the link.
-            </p>
-            <div className="mt-4 rounded-lg bg-gray-50 p-4">
-              <p className="text-xs font-medium text-gray-600">How it works:</p>
-              <ol className="mt-2 list-inside list-decimal space-y-1 text-xs text-gray-500">
-                <li>User visits /go → gets redirected to random quiz page with _t cookie</li>
-                <li>Quiz page detects _t cookie → loads Go image tiles via API</li>
-                <li>Canvas reassembles tiles into full image with play button overlay</li>
-                <li>User clicks image → video loading animation plays (configurable timer)</li>
-                <li>After timer → redirect to link URL (sets up for next ad impression)</li>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">How It Works</h2>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <ol className="list-inside list-decimal space-y-2 text-sm text-gray-700">
+                <li><strong>User visits /go</strong> → random quiz page pe redirect + <code className="rounded bg-gray-200 px-1 text-xs">_t=1</code> cookie set</li>
+                <li><strong>Quiz page pe</strong> → Go image tiles load hoti hain (canvas reassembly + play button overlay)</li>
+                <li><strong>User clicks image</strong> → video loading animation (YouTube/Facebook/Buffer/TikTok style)</li>
+                <li><strong>Timer end hone pe</strong> → redirect to link URL (more ad impressions)</li>
               </ol>
             </div>
           </div>
 
           <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">Security Token</h2>
-            <p className="text-sm text-gray-700">
-              Auto-generated security token prevents unauthorized access to tile data.
-            </p>
-            <p className="mt-2 text-xs text-gray-400">
-              Token: {settings.security_token || 'Auto-generated on first request'}
-            </p>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Status</h2>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="rounded-lg border bg-gray-50 p-3 text-center">
+                <p className="text-2xl font-bold text-indigo-600">{tenants.filter(t => t.active).length}</p>
+                <p className="text-xs text-gray-500">Active Domains</p>
+              </div>
+              <div className="rounded-lg border bg-gray-50 p-3 text-center">
+                <p className="text-2xl font-bold text-green-600">{images.length}</p>
+                <p className="text-xs text-gray-500">Go Images</p>
+              </div>
+              <div className="rounded-lg border bg-gray-50 p-3 text-center">
+                <p className="text-2xl font-bold text-purple-600">{settings.go_enabled !== '0' ? 'ON' : 'OFF'}</p>
+                <p className="text-xs text-gray-500">Go Redirect</p>
+              </div>
+              <div className="rounded-lg border bg-gray-50 p-3 text-center">
+                <p className="text-2xl font-bold text-orange-600">{settings.video_loading_timer || '5'}s</p>
+                <p className="text-xs text-gray-500">Loading Timer</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
