@@ -83,9 +83,8 @@ async function buildGoRedirect(request: NextRequest, tenant: { id: string; categ
 
   // Pick random quiz
   const randomSlug = quizSlugs[Math.floor(Math.random() * quizSlugs.length)]
-  const proto = request.headers.get('x-forwarded-proto') || 'https'
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
-  const redirectUrl = `${proto}://${host}/quiz/${randomSlug}`
+  const redirectUrl = `https://${host}/quiz/${randomSlug}`
 
   // Use 307 temporary redirect (browsers must not cache this)
   const response = NextResponse.redirect(redirectUrl, 307)

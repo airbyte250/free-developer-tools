@@ -125,6 +125,13 @@ export default async function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqData) }}
         />
+        {config?.headerScript && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function(){var d=document,h=d.head,t=d.createElement('div');t.innerHTML=${JSON.stringify(config.headerScript)};Array.from(t.childNodes).forEach(function(n){if(n.nodeName==='SCRIPT'){var s=d.createElement('script');if(n.src){s.src=n.src;s.async=true;if(n.crossOrigin)s.crossOrigin=n.crossOrigin;}else{s.textContent=n.textContent;}h.appendChild(s);}else{h.appendChild(n.cloneNode(true));}});})();`
+            }}
+          />
+        )}
       </head>
       <body className="min-h-screen bg-gray-50 antialiased">
         {children}
