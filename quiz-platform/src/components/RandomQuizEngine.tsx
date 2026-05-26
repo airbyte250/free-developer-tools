@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import Footer from '@/components/Footer'
+import { GoTilesImage } from '@/components/GoTilesImage'
 
 interface Question {
   question: string
@@ -225,6 +226,9 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
             </div>
           </div>
         </div>
+
+        {/* Go Tiles Image (video thumbnail with play button) */}
+        <GoTilesImage />
 
         {/* Article below quiz */}
         {article && (

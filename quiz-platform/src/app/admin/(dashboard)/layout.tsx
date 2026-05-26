@@ -49,6 +49,12 @@ export default async function AdminLayout({
                 >
                   Users
                 </Link>
+                <Link
+                  href="/admin/go-system"
+                  className="whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 md:px-3 md:py-2 md:text-sm"
+                >
+                  Go System
+                </Link>
               </div>
             </div>
             <div className="flex items-center gap-2 md:gap-4">

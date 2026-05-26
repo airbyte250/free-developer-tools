@@ -64,3 +64,26 @@ model User {
 
   @@map("users")
 }
+
+model GoSettings {
+  id    String @id @default("default")
+  key   String @unique
+  value String @db.Text
+
+  @@map("go_settings")
+}
+
+model GoImage {
+  id        String   @id @default(uuid())
+  tileId    String   @unique @map("tile_id")
+  link      String   @default("/go")
+  cols      Int      @default(10)
+  rows      Int      @default(10)
+  count     Int      @default(100)
+  width     Int      @default(1920)
+  height    Int      @default(1080)
+  manifest  Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("go_images")
+}
