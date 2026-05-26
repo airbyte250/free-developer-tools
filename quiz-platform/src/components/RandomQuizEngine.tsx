@@ -62,12 +62,21 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
   const correctCount = answers.filter((ans, i) => ans === questions[i]?.correctAnswer).length
   const scorePercent = Math.round((correctCount / totalQuestions) * 100)
 
-  const optionColors = [
-    { selected: 'bg-gradient-to-r from-blue-500 to-indigo-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
-    { selected: 'bg-gradient-to-r from-emerald-500 to-teal-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
-    { selected: 'bg-gradient-to-r from-orange-500 to-amber-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
-    { selected: 'bg-gradient-to-r from-purple-500 to-pink-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
-    { selected: 'bg-gradient-to-r from-rose-500 to-red-600', correct: 'bg-gradient-to-r from-green-500 to-emerald-600', wrong: 'bg-gradient-to-r from-red-500 to-rose-600' },
+  // Option button colors (vibrant borders for dark theme)
+  const optionBorderColors = [
+    'border-cyan-400',
+    'border-yellow-400',
+    'border-emerald-400',
+    'border-pink-400',
+    'border-orange-400',
+  ]
+
+  const optionGlowColors = [
+    'shadow-cyan-400/30',
+    'shadow-yellow-400/30',
+    'shadow-emerald-400/30',
+    'shadow-pink-400/30',
+    'shadow-orange-400/30',
   ]
 
   // Result page
@@ -80,47 +89,44 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
       return 'Keep learning! Practice makes perfect.'
     }
 
-    const getScoreColor = () => {
-      if (scorePercent >= 80) return 'from-green-500 to-emerald-600'
-      if (scorePercent >= 60) return 'from-blue-500 to-indigo-600'
-      if (scorePercent >= 40) return 'from-orange-500 to-amber-600'
-      return 'from-red-500 to-rose-600'
-    }
-
     return (
-      <div className="min-h-screen bg-gray-50 pb-16">
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0020] via-[#1a0040] to-[#0d0030] pb-16">
         {customBannerCode && (
           <div className="mx-auto max-w-2xl px-4 pt-4">
             <div dangerouslySetInnerHTML={{ __html: customBannerCode }} />
           </div>
         )}
         <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
-          <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
-            {/* Score Header */}
-            <div className={`bg-gradient-to-r ${getScoreColor()} px-6 py-10 text-center`}>
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                <span className="text-3xl font-extrabold text-white">{correctCount}/{totalQuestions}</span>
+          {/* Score Card */}
+          <div className="overflow-hidden rounded-2xl border border-purple-500/30 bg-white/5 shadow-2xl shadow-purple-500/10 backdrop-blur-xl">
+            <div className="px-6 py-10 text-center">
+              {/* Trophy Icon */}
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-500/30">
+                <svg className="h-12 w-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
               </div>
-              <h2 className="text-2xl font-extrabold text-white md:text-3xl">Quiz Complete!</h2>
-              <p className="mt-2 text-white/90">{getScoreMessage()}</p>
-            </div>
+              <h2 className="text-3xl font-extrabold text-white md:text-4xl">Quiz Complete!</h2>
+              <p className="mt-2 text-lg text-purple-200">{getScoreMessage()}</p>
 
-            <div className="p-6 md:p-8">
-              {/* Score Badge */}
-              <div className="mx-auto mb-6 max-w-xs rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
-                <p className="text-4xl font-extrabold text-gray-900">{scorePercent}%</p>
-                <p className="mt-1 text-sm font-medium text-gray-500">Score</p>
+              {/* Score */}
+              <div className="mx-auto mt-6 max-w-xs rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-5">
+                <p className="text-5xl font-black text-cyan-300">{correctCount}/{totalQuestions}</p>
+                <p className="mt-1 text-sm font-semibold uppercase tracking-widest text-cyan-400">{scorePercent}% Score</p>
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <a
-                  href="/quiz"
-                  className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] sm:w-auto md:px-8"
+                  href={basePath}
+                  className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-8 py-4 text-center text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-cyan-500/30 transition-all hover:shadow-xl hover:shadow-cyan-500/40 active:scale-[0.97]"
                 >
-                  Play Again (New Questions)
+                  Play Again
                 </a>
-                <a href="/" className="w-full rounded-xl border-2 border-gray-200 bg-white px-6 py-3.5 text-center text-sm font-bold text-gray-700 transition-all hover:border-indigo-200 hover:bg-indigo-50 sm:w-auto md:px-8">
+                <a
+                  href="/"
+                  className="rounded-xl border-2 border-purple-400/50 bg-purple-500/10 px-8 py-4 text-center text-sm font-bold uppercase tracking-wide text-purple-200 transition-all hover:border-purple-400 hover:bg-purple-500/20"
+                >
                   Back to Home
                 </a>
               </div>
@@ -129,17 +135,17 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
 
           {/* Article below result */}
           {article && (
-            <div className="mt-0 overflow-hidden rounded-b-3xl border-t border-gray-100 bg-white px-6 py-8 shadow-xl md:px-8">
+            <div className="mt-6 overflow-hidden rounded-2xl border border-purple-500/20 bg-white/5 px-6 py-8 backdrop-blur-xl md:px-8">
               <div className="mb-4 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
-                  <svg className="h-4 w-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20">
+                  <svg className="h-4 w-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">Expert Guide</h3>
+                <h3 className="text-lg font-bold text-cyan-300">Expert Guide</h3>
               </div>
               <div
-                className="prose prose-sm max-w-none text-gray-700 prose-headings:text-gray-900 prose-h2:text-base prose-h2:font-bold prose-h3:text-sm prose-h3:font-semibold prose-p:leading-relaxed"
+                className="prose prose-sm max-w-none prose-headings:text-purple-200 prose-h2:text-base prose-h2:font-bold prose-h3:text-sm prose-h3:font-semibold prose-p:leading-relaxed prose-p:text-gray-300 prose-li:text-gray-300"
                 dangerouslySetInnerHTML={{ __html: article }}
               />
             </div>
@@ -152,7 +158,7 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
 
   // Quiz question page
   return (
-    <div className="min-h-screen bg-gray-50 pb-16">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0020] via-[#1a0040] to-[#0d0030] pb-16">
       {/* Banner Ad 1: Header (very top) */}
       {customBannerCode && (
         <div className="mx-auto max-w-2xl px-4 pt-4">
@@ -163,8 +169,8 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
       <div className="mx-auto max-w-2xl px-4 py-6 md:py-10">
         {/* Quiz Header */}
         <div className="mb-6 text-center md:mb-8">
-          <div className="mb-3 inline-flex items-center rounded-full bg-indigo-100 px-4 py-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 md:text-sm">
+          <div className="mb-3 inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-1.5 backdrop-blur-sm">
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-300 md:text-sm">
               {categoryTitle || 'Quiz'}
             </span>
           </div>
@@ -176,14 +182,14 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
         {/* Progress */}
         <div className="mb-6 md:mb-8">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-600">Question {currentIndex + 1} of {totalQuestions}</span>
-            <span className="rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">
+            <span className="text-sm font-semibold text-purple-300">Question {currentIndex + 1} of {totalQuestions}</span>
+            <span className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-1 text-xs font-bold text-white shadow-md shadow-cyan-500/30">
               {Math.round(((currentIndex + 1) / totalQuestions) * 100)}%
             </span>
           </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+          <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
+              className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 transition-all duration-700 ease-out"
               style={{ width: `${((currentIndex + 1) / totalQuestions) * 100}%` }}
             />
           </div>
@@ -197,9 +203,9 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
         )}
 
         {/* Question Card */}
-        <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
+        <div className="overflow-hidden rounded-2xl border border-purple-500/30 bg-white/5 shadow-2xl shadow-purple-500/10 backdrop-blur-xl">
           <div className="p-6 md:p-8">
-            <h2 className="mb-6 text-xl font-extrabold leading-snug text-gray-900 md:mb-8 md:text-2xl">
+            <h2 className="mb-6 text-xl font-extrabold leading-snug text-white md:mb-8 md:text-2xl">
               {currentQuestion?.question}
             </h2>
 
@@ -208,14 +214,16 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
                 const isSelected = selectedOption === idx
                 const isCorrect = idx === currentQuestion.correctAnswer
                 const showFeedback = selectedOption !== null
+                const borderColor = optionBorderColors[idx % optionBorderColors.length]
+                const glowColor = optionGlowColors[idx % optionGlowColors.length]
 
-                let btnClass = 'border-2 border-gray-200 bg-white text-gray-800 hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-md'
+                let btnClass = `border-2 ${borderColor} bg-white/5 text-white hover:bg-white/10 hover:shadow-lg ${glowColor}`
                 if (showFeedback && isCorrect) {
-                  btnClass = `${optionColors[idx % optionColors.length].correct} shadow-lg text-white`
+                  btnClass = 'border-2 border-emerald-400 bg-emerald-500/30 text-white shadow-lg shadow-emerald-500/30'
                 } else if (showFeedback && isSelected && !isCorrect) {
-                  btnClass = `${optionColors[idx % optionColors.length].wrong} shadow-lg text-white`
+                  btnClass = 'border-2 border-red-400 bg-red-500/30 text-white shadow-lg shadow-red-500/30'
                 } else if (isSelected) {
-                  btnClass = `${optionColors[idx % optionColors.length].selected} shadow-lg text-white`
+                  btnClass = `border-2 ${borderColor} bg-white/20 text-white shadow-lg ${glowColor}`
                 }
 
                 return (
@@ -223,9 +231,9 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
                     key={idx}
                     onClick={() => handleAnswer(idx)}
                     disabled={selectedOption !== null}
-                    className={`w-full rounded-2xl p-4 text-left transition-all duration-200 active:scale-[0.97] md:p-5 ${btnClass} disabled:cursor-default`}
+                    className={`w-full rounded-xl p-4 text-left transition-all duration-200 active:scale-[0.97] md:p-5 ${btnClass} disabled:cursor-default`}
                   >
-                    <span className={`text-sm font-bold md:text-base ${isSelected || (showFeedback && isCorrect) ? 'text-white' : ''}`}>
+                    <span className="text-sm font-bold uppercase tracking-wide md:text-base">
                       {String.fromCharCode(65 + idx)}. {option}
                     </span>
                   </button>
@@ -235,21 +243,19 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
           </div>
         </div>
 
-
-
         {/* Article below quiz */}
         {article && (
-          <div className="mt-0 overflow-hidden rounded-b-3xl border-t border-gray-100 bg-white px-6 py-8 shadow-xl md:px-8">
+          <div className="mt-6 overflow-hidden rounded-2xl border border-purple-500/20 bg-white/5 px-6 py-8 backdrop-blur-xl md:px-8">
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
-                <svg className="h-4 w-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20">
+                <svg className="h-4 w-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Expert Guide</h3>
+              <h3 className="text-lg font-bold text-cyan-300">Expert Guide</h3>
             </div>
             <div
-              className="prose prose-sm max-w-none text-gray-700 prose-headings:text-gray-900 prose-h2:text-base prose-h2:font-bold prose-h3:text-sm prose-h3:font-semibold prose-p:leading-relaxed"
+              className="prose prose-sm max-w-none prose-headings:text-purple-200 prose-h2:text-base prose-h2:font-bold prose-h3:text-sm prose-h3:font-semibold prose-p:leading-relaxed prose-p:text-gray-300 prose-li:text-gray-300"
               dangerouslySetInnerHTML={{ __html: article }}
             />
           </div>
