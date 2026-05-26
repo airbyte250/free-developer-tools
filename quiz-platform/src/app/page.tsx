@@ -211,6 +211,13 @@ function TenantHomePage({ hostname, config }: { hostname: string; config: Awaite
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header Banner Ad */}
+      {config?.customBannerCode && (
+        <div className="mx-auto max-w-4xl px-4 pt-3">
+          <div dangerouslySetInnerHTML={{ __html: config.customBannerCode }} />
+        </div>
+      )}
+
       {/* Header with Logo */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">

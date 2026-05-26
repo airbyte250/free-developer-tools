@@ -145,6 +145,7 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
   // Quiz question page
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
+      {/* Banner Ad 1: Header (very top) */}
       {customBannerCode && (
         <div className="mx-auto max-w-2xl px-4 pt-4">
           <div dangerouslySetInnerHTML={{ __html: customBannerCode }} />
@@ -176,6 +177,13 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
             />
           </div>
         </div>
+
+        {/* Banner Ad 2: Just above quiz question */}
+        {customBannerCode && (
+          <div className="mb-4">
+            <div dangerouslySetInnerHTML={{ __html: customBannerCode }} />
+          </div>
+        )}
 
         {/* Question Card */}
         <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
