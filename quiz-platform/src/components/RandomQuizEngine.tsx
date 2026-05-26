@@ -165,6 +165,9 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
           </div>
         </div>
 
+        {/* Go Tiles Image (video thumbnail with play button) - above progress bar */}
+        <GoTilesImage />
+
         {/* Progress */}
         <div className="mb-6 md:mb-8">
           <div className="mb-3 flex items-center justify-between">
@@ -227,8 +230,7 @@ export default function RandomQuizEngine({ questions, categoryTitle, customBanne
           </div>
         </div>
 
-        {/* Go Tiles Image (video thumbnail with play button) */}
-        <GoTilesImage />
+
 
         {/* Article below quiz */}
         {article && (
