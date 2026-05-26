@@ -3,6 +3,8 @@ import { getTenantConfig } from '@/lib/tenant'
 import Link from 'next/link'
 import Footer from '@/components/Footer'
 
+export const dynamic = 'force-dynamic'
+
 const MAIN_DOMAINS = ['coolganwar.com', 'www.coolganwar.com']
 
 export default async function HomePage() {

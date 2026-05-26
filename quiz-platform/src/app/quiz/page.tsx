@@ -2,6 +2,8 @@ import { headers } from 'next/headers'
 import { getTenantConfig } from '@/lib/tenant'
 import RandomQuizEngine from '@/components/RandomQuizEngine'
 
+export const dynamic = 'force-dynamic'
+
 export default async function QuizPage() {
   const headersList = await headers()
   const hostname = headersList.get('x-tenant-host') || 'localhost'
