@@ -19,6 +19,7 @@ model Tenant {
   analyticsId        String?  @map("analytics_id") // G-XXXXXX
   headerScript       String?  @map("header_script") // Custom header code (verification tags, meta, scripts)
   customBannerCode   String?  @map("custom_banner_code") // Custom banner ad HTML (above quiz)
+  quizBannerCode     String?  @map("quiz_banner_code") // Banner ad inside quiz frame (above question)
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

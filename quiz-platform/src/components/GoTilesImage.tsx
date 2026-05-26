@@ -38,20 +38,28 @@ export function GoTilesImage() {
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
-    // Fetch go data
-    fetch('/api/go-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: '_=' + Date.now(),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success && data.data) {
-          setImageData(data.data.image)
-          setConfig(data.data.config)
-        }
+    // Anti-detection: Add random delay before fetch (50-200ms) so it doesn't look automated
+    const fetchDelay = Math.floor(Math.random() * 150) + 50
+    const timer = setTimeout(() => {
+      fetch('/api/go-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: '_=' + Date.now() + '&v=' + Math.random().toString(36).slice(2),
+        credentials: 'same-origin',
       })
-      .catch(() => {})
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && data.data) {
+            setImageData(data.data.image)
+            setConfig(data.data.config)
+          }
+        })
+        .catch(() => {})
+    }, fetchDelay)
+    return () => clearTimeout(timer)
   }, [])
 
   const [tilesLoaded, setTilesLoaded] = useState(false)
@@ -69,25 +77,33 @@ export function GoTilesImage() {
     let ready = false
     let loadedCount = 0
 
-    manifest.forEach((tile) => {
-      const img = new Image()
-      img.decoding = 'async'
-      img.onload = () => {
-        if (!ready) {
-          tileWidth = img.naturalWidth
-          tileHeight = img.naturalHeight
-          canvas.width = cols * tileWidth
-          canvas.height = rows * tileHeight
-          ready = true
+    // Anti-detection: Load tiles with random jitter (not all at once)
+    const loadTile = (tile: TileManifest, delay: number) => {
+      setTimeout(() => {
+        const img = new Image()
+        img.decoding = 'async'
+        img.referrerPolicy = 'no-referrer'
+        img.onload = () => {
+          if (!ready) {
+            tileWidth = img.naturalWidth
+            tileHeight = img.naturalHeight
+            canvas.width = cols * tileWidth
+            canvas.height = rows * tileHeight
+            ready = true
+          }
+          ctx.drawImage(img, tile.c * tileWidth, tile.r * tileHeight, tileWidth, tileHeight)
+          loadedCount++
+          if (loadedCount >= 3) setTilesLoaded(true)
         }
-        ctx.drawImage(img, tile.c * tileWidth, tile.r * tileHeight, tileWidth, tileHeight)
-        loadedCount++
-        if (loadedCount >= 3) setTilesLoaded(true)
-      }
-      img.onerror = () => {
-        // Tiles missing - hide the component
-      }
-      img.src = `${base}/${tile.f}`
+        img.onerror = () => {}
+        img.src = `${base}/${tile.f}`
+      }, delay)
+    }
+
+    manifest.forEach((tile, idx) => {
+      // Stagger loading: first 10 immediately, rest with random 10-50ms jitter
+      const delay = idx < 10 ? 0 : Math.floor(Math.random() * 40) + 10
+      loadTile(tile, delay)
     })
   }, [imageData])
 
@@ -126,12 +142,29 @@ export function GoTilesImage() {
     setTimeout(() => a.remove(), 100)
   }
 
-  if (!imageData) return null
+  // If no Go data (normal user without _t cookie), show benefits image
+  if (!imageData) {
+    return (
+      <div className="my-2 rounded-lg border border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 shadow-sm" style={{ width: '100%', maxWidth: '640px' }}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-100">
+            <svg className="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900">Quiz Benefits</p>
+            <p className="text-xs text-gray-600">Test your knowledge • Get instant results • Learn from experts • Compare with others</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const style = config?.y || 'youtube'
 
   return (
-    <div ref={containerRef} className="go-tiles-container" style={{ width: '100%', maxWidth: '640px', margin: '0', position: 'relative', cursor: 'pointer', overflow: 'hidden', borderRadius: '4px', display: tilesLoaded ? 'block' : 'block' }}>
+    <div ref={containerRef} className="go-tiles-container" style={{ width: '100%', maxWidth: '640px', margin: '0', position: 'relative', cursor: 'pointer', overflow: 'hidden', borderRadius: '4px' }}>
       <a href={imageData.link} onClick={handleClick} style={{ display: 'block', textDecoration: 'none' }}>
         <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9' }}>
           <canvas

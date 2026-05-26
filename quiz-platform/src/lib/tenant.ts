@@ -13,6 +13,7 @@ export interface TenantConfig {
   analyticsId: string | null
   headerScript: string | null
   customBannerCode: string | null
+  quizBannerCode: string | null
   category: {
     id: string
     slug: string
@@ -115,6 +116,7 @@ export async function getTenantConfig(hostname: string): Promise<TenantConfig | 
     analyticsId: tenant.analyticsId,
     headerScript: tenant.headerScript,
     customBannerCode: tenant.customBannerCode,
+    quizBannerCode: tenant.quizBannerCode,
     category: {
       id: tenant.category.id,
       slug: tenant.category.slug,

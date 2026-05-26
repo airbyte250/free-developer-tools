@@ -16,6 +16,7 @@ interface Tenant {
   categoryId: string
   headerScript: string | null
   customBannerCode: string | null
+  quizBannerCode: string | null
   createdAt: string
   category: Category
 }
@@ -41,6 +42,7 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
     categoryId: categories[0]?.id || '',
     headerScript: '',
     customBannerCode: '',
+    quizBannerCode: '',
     adsTxtLines: '',
   }
 
@@ -53,6 +55,7 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
       categoryId: tenant.categoryId,
       headerScript: tenant.headerScript || '',
       customBannerCode: tenant.customBannerCode || '',
+      quizBannerCode: tenant.quizBannerCode || '',
       adsTxtLines: '',
     })
     setShowForm(true)
@@ -284,9 +287,25 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
               </div>
             </div>
 
+            {/* Section: Quiz Banner Ad (inside quiz frame) */}
+            <div className="rounded-lg border border-gray-200 p-4">
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">3. Quiz Frame Banner Ad</h3>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Banner Ad Code (inside quiz card, above question)</label>
+                <textarea
+                  placeholder={'<ins class="adsbygoogle"\n     style="display:block"\n     data-ad-client="ca-pub-XXXXX"\n     data-ad-slot="XXXXX"\n     data-ad-format="auto"\n     data-full-width-responsive="true"></ins>\n<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>'}
+                  value={form.quizBannerCode}
+                  onChange={e => setForm(prev => ({ ...prev, quizBannerCode: e.target.value }))}
+                  rows={5}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 font-mono text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-400">Shows inside the quiz card frame, just above the question text</p>
+              </div>
+            </div>
+
             {/* Section 4: Custom Header Code */}
             <div className="rounded-lg border border-gray-200 p-4">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">3. Custom Header Code ({"<head>"})</h3>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">4. Custom Header Code ({"<head>"})</h3>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Header Scripts & Verification</label>
                 <textarea
@@ -392,6 +411,12 @@ export default function TenantManager({ initialTenants, categories, serverIp }: 
                       className="mr-2 text-emerald-600 hover:text-emerald-800 font-medium disabled:opacity-50"
                     >
                       {sslLoading === tenant.hostname ? 'SSL...' : 'SSL'}
+                    </button>
+                    <button
+                      onClick={() => window.open(`https://${tenant.hostname}/api/clear-cookies`, '_blank')}
+                      className="mr-2 text-amber-600 hover:text-amber-800 font-medium"
+                    >
+                      Cookies
                     </button>
                     <button
                       onClick={() => handleStatusToggle(tenant)}

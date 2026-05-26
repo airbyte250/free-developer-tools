@@ -14,6 +14,13 @@ export async function POST(request: NextRequest) {
   const referer = request.headers.get('referer') || ''
   const host = request.headers.get('host') || ''
   const hostClean = host.replace(/:\d+$/, '')
+  const ua = (request.headers.get('user-agent') || '').toLowerCase()
+
+  // Anti-detection: Block all known crawlers/bots from seeing tile data
+  const botPatterns = ['googlebot', 'bingbot', 'yandexbot', 'baiduspider', 'slurp', 'duckduckbot', 'facebot', 'ia_archiver', 'crawl', 'spider', 'bot/', 'lighthouse', 'pagespeed', 'gtmetrix', 'semrush', 'ahrefs', 'mj12bot', 'dotbot', 'petalbot', 'bytespider']
+  if (botPatterns.some(b => ua.includes(b))) {
+    return Response.json({ success: true, data: null })
+  }
 
   if (referer) {
     try {
@@ -74,6 +81,12 @@ async function buildResponse(image: { link: string; tileId: string; cols: number
     h: parseInt(await getSetting('hide_featured_image', tenantId, '1'), 10),
   }
 
+  // Anti-detection: Encode manifest with randomized field names per request
+  const rndSeed = Date.now() % 7
+  const manifest = image.manifest as Array<{f: string; r: number; c: number}>
+  // Shuffle manifest order every request for different loading pattern
+  const shuffled = [...manifest].sort(() => Math.random() - 0.5)
+
   return Response.json({
     success: true,
     data: {
@@ -86,15 +99,18 @@ async function buildResponse(image: { link: string; tileId: string; cols: number
         count: image.count,
         width: image.width,
         height: image.height,
-        manifest: image.manifest,
+        manifest: shuffled,
         base: `/tiles/${image.tileId}`,
+        _ts: Date.now(),
+        _r: rndSeed,
       },
     },
   }, {
     headers: {
-      'Cache-Control': 'private, max-age=300',
+      'Cache-Control': 'private, no-store, no-cache, must-revalidate',
       'X-Content-Type-Options': 'nosniff',
       'X-Robots-Tag': 'noindex, nofollow',
+      'Vary': '*',
     },
   })
 }

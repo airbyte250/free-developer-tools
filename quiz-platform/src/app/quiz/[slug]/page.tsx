@@ -191,6 +191,7 @@ export default async function QuizSlugPage({ params }: PageProps) {
         questions={selectedQuestions}
         categoryTitle={config.category.metaTitle}
         customBannerCode={config.customBannerCode}
+        quizBannerCode={config.quizBannerCode}
         headerScript={config.headerScript}
         article={article}
         quizSlug={slug}

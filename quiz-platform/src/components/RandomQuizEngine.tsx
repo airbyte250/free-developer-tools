@@ -15,6 +15,7 @@ interface RandomQuizEngineProps {
   questions: Question[]
   categoryTitle: string
   customBannerCode: string | null
+  quizBannerCode: string | null
   headerScript: string | null
   article: string | null
   quizSlug?: string
@@ -25,7 +26,7 @@ function getSessionKey(slug: string) {
   return `quiz_${slug}`
 }
 
-export default function RandomQuizEngine({ questions: serverQuestions, categoryTitle, customBannerCode, headerScript, article, quizSlug, initialStep }: RandomQuizEngineProps) {
+export default function RandomQuizEngine({ questions: serverQuestions, categoryTitle, customBannerCode, quizBannerCode, headerScript, article, quizSlug, initialStep }: RandomQuizEngineProps) {
   const basePath = quizSlug ? `/quiz/${quizSlug}` : '/quiz'
   const stepIndex = initialStep || 0
 
@@ -198,6 +199,12 @@ export default function RandomQuizEngine({ questions: serverQuestions, categoryT
 
         {/* Question Card */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-lg">
+          {/* Quiz Frame Banner Ad (inside card, above question) */}
+          {quizBannerCode && (
+            <div className="mb-3 -mx-2">
+              <AdSlot code={quizBannerCode} />
+            </div>
+          )}
           <h2 className="mb-4 text-base font-bold leading-tight text-gray-900 md:text-lg">
             {currentQuestion?.question}
           </h2>

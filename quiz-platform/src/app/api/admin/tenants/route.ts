@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
     analyticsId,
     headerScript,
     customBannerCode,
+    quizBannerCode,
     adsTxtLines,
   } = body
 
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
       analyticsId: analyticsId || null,
       headerScript: headerScript || null,
       customBannerCode: customBannerCode || null,
+      quizBannerCode: quizBannerCode || null,
       adsTxt: adsTxtLines?.length
         ? {
             create: adsTxtLines.map((line: string) => ({ line })),
@@ -109,6 +111,7 @@ export async function PUT(request: NextRequest) {
       analyticsId: data.analyticsId || null,
       headerScript: data.headerScript !== undefined ? (data.headerScript || null) : undefined,
       customBannerCode: data.customBannerCode !== undefined ? (data.customBannerCode || null) : undefined,
+      quizBannerCode: data.quizBannerCode !== undefined ? (data.quizBannerCode || null) : undefined,
       status: data.status,
     },
     include: { category: true },
