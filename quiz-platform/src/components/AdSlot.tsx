@@ -21,6 +21,18 @@ export default function AdSlot({ code }: AdSlotProps) {
     const temp = document.createElement('div')
     temp.innerHTML = code
 
+    // Patch: If page already loaded, intercept DOMContentLoaded listeners and run them immediately
+    const origAdd = document.addEventListener
+    if (document.readyState !== 'loading') {
+      document.addEventListener = function(type: string, fn: EventListenerOrEventListenerObject, ...args: unknown[]) {
+        if (type === 'DOMContentLoaded') {
+          setTimeout(() => (fn as EventListener)(new Event('DOMContentLoaded')), 0)
+        } else {
+          origAdd.call(document, type, fn as EventListenerOrEventListenerObject, args[0] as boolean | AddEventListenerOptions | undefined)
+        }
+      } as typeof document.addEventListener
+    }
+
     function activateScripts(parent: Element) {
       const scripts = parent.querySelectorAll('script')
       scripts.forEach((oldScript) => {
@@ -44,6 +56,9 @@ export default function AdSlot({ code }: AdSlotProps) {
 
     // Then activate all scripts (top-level and nested)
     activateScripts(container)
+
+    // Restore original addEventListener after scripts are injected
+    setTimeout(() => { document.addEventListener = origAdd }, 100)
   }, [code])
 
   return <div ref={containerRef} />
