@@ -17,28 +17,33 @@ export default function AdSlot({ code }: AdSlotProps) {
     const container = containerRef.current
     container.innerHTML = ''
 
-    // Parse HTML and inject with script execution
+    // Parse HTML and inject with script execution (including nested scripts)
     const temp = document.createElement('div')
     temp.innerHTML = code
 
-    // Move nodes and execute scripts
+    function activateScripts(parent: Element) {
+      const scripts = parent.querySelectorAll('script')
+      scripts.forEach((oldScript) => {
+        const newScript = document.createElement('script')
+        if (oldScript.src) {
+          newScript.src = oldScript.src
+          newScript.async = true
+          if (oldScript.crossOrigin) newScript.crossOrigin = oldScript.crossOrigin
+        } else {
+          newScript.textContent = oldScript.textContent
+        }
+        oldScript.parentNode?.replaceChild(newScript, oldScript)
+      })
+    }
+
+    // Move all nodes into container first (preserving structure)
     const nodes = Array.from(temp.childNodes)
     for (const node of nodes) {
-      if (node.nodeName === 'SCRIPT') {
-        const script = document.createElement('script')
-        const srcEl = node as HTMLScriptElement
-        if (srcEl.src) {
-          script.src = srcEl.src
-          script.async = true
-          if (srcEl.crossOrigin) script.crossOrigin = srcEl.crossOrigin
-        } else {
-          script.textContent = srcEl.textContent
-        }
-        container.appendChild(script)
-      } else {
-        container.appendChild(node.cloneNode(true))
-      }
+      container.appendChild(node)
     }
+
+    // Then activate all scripts (top-level and nested)
+    activateScripts(container)
   }, [code])
 
   return <div ref={containerRef} />
