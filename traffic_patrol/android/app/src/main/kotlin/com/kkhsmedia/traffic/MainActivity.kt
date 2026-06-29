@@ -1,4 +1,4 @@
-package com.trafficpatrol.traffic_patrol
+package com.kkhsmedia.traffic
 
 import io.flutter.embedding.android.FlutterActivity
 

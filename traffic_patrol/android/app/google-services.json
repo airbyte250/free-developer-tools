@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1071254433829",
+    "project_id": "trafficweb-apps-add",
+    "storage_bucket": "trafficweb-apps-add.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071254433829:android:b1af691650bc9007924fcc",
+        "android_client_info": {
+          "package_name": "com.kkhsmedia.traffic"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlMAsk5N-VstAl8vt1N_LU_H4wk-4Q-4E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
