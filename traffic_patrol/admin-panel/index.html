@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traffic Patrol - Admin Panel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root { --primary: #1a237e; --primary-light: #283593; --accent: #ffc107; }
+    body { background: #f5f5f5; font-family: 'Segoe UI', sans-serif; }
+
+    /* Login */
+    .login-page {
+      background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #1565c0 100%);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      background: white; border-radius: 20px; padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 420px; width: 100%;
+    }
+    .logo-icon {
+      width: 80px; height: 80px; background: var(--accent); border-radius: 20px;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
+    }
+    .logo-icon i { font-size: 40px; color: var(--primary); }
+    .btn-login { background: var(--primary); border: none; padding: 12px; font-size: 16px; font-weight: 600; }
+    .btn-login:hover { background: var(--primary-light); }
+
+    /* Navbar */
+    .navbar { background: linear-gradient(135deg, #1a237e, #283593) !important; }
+
+    /* Stats */
+    .stat-card {
+      border-radius: 15px; padding: 20px; color: white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .stat-card.total { background: linear-gradient(135deg, #1a237e, #3949ab); }
+    .stat-card.active { background: linear-gradient(135deg, #2e7d32, #43a047); }
+    .stat-card.inactive { background: linear-gradient(135deg, #c62828, #e53935); }
+    .stat-number { font-size: 36px; font-weight: 700; }
+
+    /* Table */
+    .officer-table {
+      background: white; border-radius: 15px; overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    .badge-role { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .role-senior { background: #ffc107; color: #1a237e; }
+    .role-junior { background: #e3f2fd; color: #1565c0; }
+    .role-admin { background: #f3e5f5; color: #7b1fa2; }
+    .btn-add {
+      background: var(--accent); color: var(--primary); font-weight: 600;
+      border: none; border-radius: 10px; padding: 10px 24px;
+    }
+    .btn-add:hover { background: #ffca28; color: var(--primary); }
+    .status-active { color: #2e7d32; }
+    .status-inactive { color: #c62828; }
+
+    /* Modal */
+    .modal-header { background: var(--primary); color: white; }
+
+    /* Alerts */
+    .alert-card {
+      background: white; border-radius: 12px; padding: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 12px;
+    }
+    .severity-high { border-left: 4px solid #c62828; }
+    .severity-medium { border-left: 4px solid #f57f17; }
+    .severity-low { border-left: 4px solid #2e7d32; }
+    .severity-critical { border-left: 4px solid #b71c1c; background: #fff5f5; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .nav-tabs .nav-link.active { background: var(--primary) !important; color: white !important; border: none; }
+
+    #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8);
+      display: flex; align-items: center; justify-content: center; z-index: 9999; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading -->
+  <div id="loading" style="display:none;">
+    <div class="text-center">
+      <div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div>
+      <p class="mt-3 fw-semibold">Loading...</p>
+    </div>
+  </div>
+
+  <!-- Login Page -->
+  <div id="loginPage" class="login-page">
+    <div class="login-card">
+      <div class="logo-icon"><i class="fas fa-shield-halved"></i></div>
+      <h3 class="text-center fw-bold mb-1" style="color:#1a237e;">TRAFFIC PATROL</h3>
+      <p class="text-center text-muted mb-4">Admin Panel Login</p>
+      <div id="loginError" class="alert alert-danger py-2 d-none"></div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Username</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-user"></i></span>
+          <input type="text" id="loginUsername" class="form-control" placeholder="admin" value="admin">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-lock"></i></span>
+          <input type="password" id="loginPassword" class="form-control" placeholder="Enter password">
+        </div>
+      </div>
+      <button onclick="doLogin()" class="btn btn-primary btn-login w-100 text-white">
+        <i class="fas fa-sign-in-alt me-2"></i>Login
+      </button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboardPage" style="display:none;">
+    <nav class="navbar navbar-dark px-4">
+      <a class="navbar-brand fw-bold" href="#">
+        <i class="fas fa-shield-halved me-2" style="color:#ffc107;"></i>TRAFFIC PATROL - Admin
+      </a>
+      <div class="d-flex gap-2">
+        <button onclick="showTab('officers')" class="btn btn-outline-light btn-sm"><i class="fas fa-users me-1"></i>Officers</button>
+        <button onclick="showTab('alerts')" class="btn btn-outline-light btn-sm"><i class="fas fa-bell me-1"></i>Alerts</button>
+        <button onclick="showTab('sos')" class="btn btn-outline-danger btn-sm"><i class="fas fa-exclamation-triangle me-1"></i>SOS</button>
+        <button onclick="doLogout()" class="btn btn-outline-light btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
+
+    <!-- Officers Tab -->
+    <div id="tab-officers" class="tab-content active">
+      <div class="container-fluid px-4 py-4">
+        <div class="row g-4 mb-4">
+          <div class="col-md-4">
+            <div class="stat-card total">
+              <div class="d-flex justify-content-between align-items-center">
+                <div><div class="text-white-50 small">Total Officers</div><div class="stat-number" id="statTotal">0</div></div>
+                <i class="fas fa-users fa-2x text-white-50"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card active">
+              <div class="d-flex justify-content-between align-items-center">
+                <div><div class="text-white-50 small">Active</div><div class="stat-number" id="statActive">0</div></div>
+                <i class="fas fa-user-check fa-2x text-white-50"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card inactive">
+              <div class="d-flex justify-content-between align-items-center">
+                <div><div class="text-white-50 small">Inactive</div><div class="stat-number" id="statInactive">0</div></div>
+                <i class="fas fa-user-xmark fa-2x text-white-50"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold mb-0"><i class="fas fa-list me-2"></i>Officers List</h5>
+          <button onclick="openAddOfficer()" class="btn btn-add"><i class="fas fa-plus me-2"></i>Add Officer</button>
+        </div>
+
+        <div class="officer-table">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th><th>Name</th><th>Mobile</th><th>Badge No.</th>
+                  <th>Rank</th><th>Station</th><th>District</th><th>Status</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="officersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerts Tab -->
+    <div id="tab-alerts" class="tab-content">
+      <div class="container-fluid px-4 py-4">
+        <h5 class="fw-bold mb-3"><i class="fas fa-bell me-2 text-warning"></i>Traffic Alerts</h5>
+        <div id="alertsList" class="row g-3"></div>
+      </div>
+    </div>
+
+    <!-- SOS Tab -->
+    <div id="tab-sos" class="tab-content">
+      <div class="container-fluid px-4 py-4">
+        <h5 class="fw-bold mb-3"><i class="fas fa-exclamation-triangle me-2 text-danger"></i>SOS Alerts</h5>
+        <div id="sosList" class="row g-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Officer Modal -->
+  <div class="modal fade" id="officerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle"><i class="fas fa-user-plus me-2"></i>Add Officer</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="formError" class="alert alert-danger d-none"></div>
+          <input type="hidden" id="officerId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Officer Name <span class="text-danger">*</span></label>
+              <input type="text" id="officerName" class="form-control" placeholder="Full name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Mobile Number <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">+91</span>
+                <input type="text" id="officerMobile" class="form-control" placeholder="9876543210" maxlength="10" required>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Badge Number <span class="text-danger">*</span></label>
+              <input type="text" id="officerBadge" class="form-control" placeholder="JP-1234" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Rank <span class="text-danger">*</span></label>
+              <select id="officerRole" class="form-select" required>
+                <option value="">Select Rank</option>
+                <option value="constable">Police Constable</option>
+                <option value="headConstable">Head Constable</option>
+                <option value="asi">Assistant Sub-Inspector (ASI)</option>
+                <option value="si">Sub-Inspector (SI)</option>
+                <option value="inspector">Inspector / SHO</option>
+                <option value="dsp">Deputy Superintendent (DSP)</option>
+                <option value="addlSP">Additional SP</option>
+                <option value="sp">Superintendent of Police (SP)</option>
+                <option value="dig">Deputy Inspector General (DIG)</option>
+                <option value="ig">Inspector General (IG)</option>
+                <option value="adgp">Additional DG (ADGP)</option>
+                <option value="dgp">Director General (DGP)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Station / Thana <span class="text-danger">*</span></label>
+              <input type="text" id="officerStation" class="form-control" placeholder="Jodhawada" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">District</label>
+              <input type="text" id="officerDistrict" class="form-control" placeholder="Jaipur">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">State</label>
+              <input type="text" id="officerState" class="form-control" placeholder="Rajasthan">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" onclick="saveOfficer()" class="btn btn-primary" style="background:#1a237e;border:none;">
+            <i class="fas fa-save me-2"></i>Save Officer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, limit, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0TjJAihT1wpMN_SFbVgIlh7657nK0TDI",
+      authDomain: "trafficweb-apps-add.firebaseapp.com",
+      projectId: "trafficweb-apps-add",
+      storageBucket: "trafficweb-apps-add.firebasestorage.app",
+      messagingSenderId: "1071254433829",
+      appId: "1:1071254433829:web:3acbd5dadb480184924fcc",
+      measurementId: "G-ESGMNV0MZV"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const ADMIN_USER = 'admin';
+    const ADMIN_PASS = 'trafficpolice';
+
+    const ROLES = {
+      constable: { label: 'Police Constable', level: 1 },
+      headConstable: { label: 'Head Constable', level: 2 },
+      asi: { label: 'ASI', level: 3 },
+      si: { label: 'Sub-Inspector', level: 4 },
+      inspector: { label: 'Inspector / SHO', level: 5 },
+      dsp: { label: 'DSP', level: 6 },
+      addlSP: { label: 'Addl. SP', level: 7 },
+      sp: { label: 'SP', level: 8 },
+      dig: { label: 'DIG', level: 9 },
+      ig: { label: 'IG', level: 10 },
+      adgp: { label: 'ADGP', level: 11 },
+      dgp: { label: 'DGP', level: 12 },
+    };
+
+    let officerModal;
+
+    // Login
+    window.doLogin = function() {
+      const user = document.getElementById('loginUsername').value;
+      const pass = document.getElementById('loginPassword').value;
+      if (user === ADMIN_USER && pass === ADMIN_PASS) {
+        sessionStorage.setItem('admin', 'true');
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('dashboardPage').style.display = 'block';
+        loadOfficers();
+      } else {
+        const err = document.getElementById('loginError');
+        err.textContent = 'Invalid username or password';
+        err.classList.remove('d-none');
+      }
+    };
+
+    window.doLogout = function() {
+      sessionStorage.removeItem('admin');
+      location.reload();
+    };
+
+    // Check session
+    if (sessionStorage.getItem('admin') === 'true') {
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('dashboardPage').style.display = 'block';
+      loadOfficers();
+    }
+
+    // Tabs
+    window.showTab = function(tab) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      if (tab === 'alerts') loadAlerts();
+      if (tab === 'sos') loadSos();
+    };
+
+    // Officers
+    async function loadOfficers() {
+      try {
+        const q = query(collection(db, 'officers'), orderBy('name'));
+        onSnapshot(q, (snapshot) => {
+          const officers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderOfficers(officers);
+        });
+      } catch (e) {
+        console.error('Error loading officers:', e);
+        renderOfficers([]);
+      }
+    }
+
+    function renderOfficers(officers) {
+      const total = officers.length;
+      const active = officers.filter(o => o.isActive !== false).length;
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statActive').textContent = active;
+      document.getElementById('statInactive').textContent = total - active;
+
+      const tbody = document.getElementById('officersTable');
+      if (officers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-muted"><i class="fas fa-user-plus fa-3x mb-3 d-block"></i>No officers yet. Click "Add Officer" to start.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = officers.map((o, i) => {
+        const role = ROLES[o.role] || { label: o.role, level: 0 };
+        const roleClass = role.level >= 8 ? 'role-admin' : (role.level >= 5 ? 'role-senior' : 'role-junior');
+        const statusClass = o.isActive !== false ? 'status-active' : 'status-inactive';
+        const statusText = o.isActive !== false ? 'Active' : 'Inactive';
+        return `<tr>
+          <td>${i + 1}</td>
+          <td class="fw-semibold">${o.name}</td>
+          <td><i class="fas fa-phone me-1 text-muted small"></i>${o.mobileNumber}</td>
+          <td>${o.badgeNumber}</td>
+          <td><span class="badge-role ${roleClass}">${role.label}</span></td>
+          <td>${o.station}</td>
+          <td>${o.district || '-'}</td>
+          <td><span class="${statusClass}"><i class="fas fa-circle small me-1"></i>${statusText}</span></td>
+          <td>
+            <div class="btn-group btn-group-sm">
+              <button onclick="editOfficer('${o.id}')" class="btn btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></button>
+              <button onclick="toggleOfficer('${o.id}', ${o.isActive !== false})" class="btn btn-outline-warning" title="Toggle"><i class="fas fa-power-off"></i></button>
+              <button onclick="deleteOfficer('${o.id}', '${o.name}')" class="btn btn-outline-danger" title="Delete"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Add Officer
+    window.openAddOfficer = function() {
+      document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i>Add Officer';
+      document.getElementById('officerId').value = '';
+      document.getElementById('officerName').value = '';
+      document.getElementById('officerMobile').value = '';
+      document.getElementById('officerBadge').value = '';
+      document.getElementById('officerRole').value = '';
+      document.getElementById('officerStation').value = '';
+      document.getElementById('officerDistrict').value = '';
+      document.getElementById('officerState').value = '';
+      document.getElementById('formError').classList.add('d-none');
+      if (!officerModal) officerModal = new bootstrap.Modal(document.getElementById('officerModal'));
+      officerModal.show();
+    };
+
+    // Edit Officer
+    window.editOfficer = async function(id) {
+      try {
+        const snapshot = await getDocs(query(collection(db, 'officers')));
+        const officer = snapshot.docs.find(d => d.id === id);
+        if (!officer) return;
+        const data = officer.data();
+        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Officer';
+        document.getElementById('officerId').value = id;
+        document.getElementById('officerName').value = data.name || '';
+        document.getElementById('officerMobile').value = data.mobileNumber || '';
+        document.getElementById('officerBadge').value = data.badgeNumber || '';
+        document.getElementById('officerRole').value = data.role || '';
+        document.getElementById('officerStation').value = data.station || '';
+        document.getElementById('officerDistrict').value = data.district || '';
+        document.getElementById('officerState').value = data.state || '';
+        document.getElementById('formError').classList.add('d-none');
+        if (!officerModal) officerModal = new bootstrap.Modal(document.getElementById('officerModal'));
+        officerModal.show();
+      } catch (e) {
+        alert('Error loading officer: ' + e.message);
+      }
+    };
+
+    // Save Officer
+    window.saveOfficer = async function() {
+      const id = document.getElementById('officerId').value;
+      const name = document.getElementById('officerName').value.trim();
+      const mobile = document.getElementById('officerMobile').value.trim();
+      const badge = document.getElementById('officerBadge').value.trim();
+      const role = document.getElementById('officerRole').value;
+      const station = document.getElementById('officerStation').value.trim();
+      const district = document.getElementById('officerDistrict').value.trim();
+      const state = document.getElementById('officerState').value.trim();
+
+      if (!name || !mobile || !badge || !role || !station) {
+        const err = document.getElementById('formError');
+        err.textContent = 'Please fill all required fields';
+        err.classList.remove('d-none');
+        return;
+      }
+      if (mobile.length !== 10 || !/^\d{10}$/.test(mobile)) {
+        const err = document.getElementById('formError');
+        err.textContent = 'Mobile number must be exactly 10 digits';
+        err.classList.remove('d-none');
+        return;
+      }
+
+      try {
+        document.getElementById('loading').style.display = 'flex';
+        const now = Timestamp.now();
+
+        if (id) {
+          // Update
+          await updateDoc(doc(db, 'officers', id), {
+            name, mobileNumber: mobile, badgeNumber: badge, role, station,
+            district: district || null, state: state || null, updatedAt: now
+          });
+        } else {
+          // Check duplicate
+          const dup = await getDocs(query(collection(db, 'officers'), where('mobileNumber', '==', mobile), limit(1)));
+          if (!dup.empty) {
+            document.getElementById('loading').style.display = 'none';
+            const err = document.getElementById('formError');
+            err.textContent = 'This mobile number is already registered!';
+            err.classList.remove('d-none');
+            return;
+          }
+          // Add
+          await addDoc(collection(db, 'officers'), {
+            name, mobileNumber: mobile, badgeNumber: badge, role, station,
+            district: district || null, state: state || null,
+            isActive: true, createdAt: now, updatedAt: now
+          });
+        }
+
+        document.getElementById('loading').style.display = 'none';
+        officerModal.hide();
+      } catch (e) {
+        document.getElementById('loading').style.display = 'none';
+        const err = document.getElementById('formError');
+        err.textContent = 'Error: ' + e.message;
+        err.classList.remove('d-none');
+      }
+    };
+
+    // Toggle Status
+    window.toggleOfficer = async function(id, currentStatus) {
+      try {
+        await updateDoc(doc(db, 'officers', id), {
+          isActive: !currentStatus, updatedAt: Timestamp.now()
+        });
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    };
+
+    // Delete Officer
+    window.deleteOfficer = async function(id, name) {
+      if (!confirm(`Delete officer "${name}"? This cannot be undone.`)) return;
+      try {
+        await deleteDoc(doc(db, 'officers', id));
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    };
+
+    // Alerts
+    async function loadAlerts() {
+      try {
+        const q = query(collection(db, 'trafficAlerts'), orderBy('createdAt', 'desc'), limit(50));
+        const snapshot = await getDocs(q);
+        const alerts = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const container = document.getElementById('alertsList');
+
+        if (alerts.length === 0) {
+          container.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="fas fa-check-circle fa-3x mb-3 d-block text-success"></i>No traffic alerts yet.</div>';
+          return;
+        }
+
+        container.innerHTML = alerts.map(a => `
+          <div class="col-md-6 col-lg-4">
+            <div class="alert-card severity-${a.severity || 'medium'}">
+              <div class="d-flex justify-content-between mb-2">
+                <span class="badge bg-${a.severity === 'critical' ? 'danger' : (a.severity === 'high' ? 'warning' : 'info')}">${(a.severity || 'medium').toUpperCase()}</span>
+                <span class="badge bg-${a.status === 'active' ? 'danger' : (a.status === 'resolved' ? 'success' : 'secondary')}">${(a.status || 'active').toUpperCase()}</span>
+              </div>
+              <p class="mb-1 fw-semibold">${a.description || 'Traffic jam reported'}</p>
+              <small class="text-muted"><i class="fas fa-map-marker-alt me-1"></i>Lat: ${a.latitude ? a.latitude.toFixed(4) : 'N/A'}, Lng: ${a.longitude ? a.longitude.toFixed(4) : 'N/A'}</small><br>
+              <small class="text-muted"><i class="fas fa-clock me-1"></i>${a.createdAt ? new Date(a.createdAt.seconds * 1000).toLocaleString('en-IN') : 'N/A'}</small>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('alertsList').innerHTML = '<div class="col-12 text-center py-5 text-muted">Error loading alerts</div>';
+      }
+    }
+
+    // SOS
+    async function loadSos() {
+      try {
+        const q = query(collection(db, 'sosAlerts'), orderBy('timestamp', 'desc'), limit(50));
+        const snapshot = await getDocs(q);
+        const alerts = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const container = document.getElementById('sosList');
+
+        if (alerts.length === 0) {
+          container.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="fas fa-check-circle fa-3x mb-3 d-block text-success"></i>No SOS alerts.</div>';
+          return;
+        }
+
+        container.innerHTML = alerts.map(a => `
+          <div class="col-md-6">
+            <div class="alert-card severity-critical">
+              <div class="d-flex justify-content-between mb-2">
+                <span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>SOS</span>
+                <span class="badge bg-${a.status === 'active' ? 'danger' : 'success'}">${(a.status || 'active').toUpperCase()}</span>
+              </div>
+              <p class="fw-semibold mb-1">${a.officerName || 'Unknown Officer'}</p>
+              <small class="text-muted d-block"><i class="fas fa-map-marker-alt me-1"></i>Lat: ${a.latitude ? a.latitude.toFixed(4) : 'N/A'}, Lng: ${a.longitude ? a.longitude.toFixed(4) : 'N/A'}</small>
+              <small class="text-muted"><i class="fas fa-clock me-1"></i>${a.timestamp ? new Date(a.timestamp.seconds * 1000).toLocaleString('en-IN') : 'N/A'}</small>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('sosList').innerHTML = '<div class="col-12 text-center py-5 text-muted">Error loading SOS alerts</div>';
+      }
+    }
+
+    // Enter key on login
+    document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') window.doLogin();
+    });
+  </script>
+</body>
+</html>
