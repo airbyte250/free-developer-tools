@@ -4,6 +4,9 @@ class AppConstants {
   static const String appName = 'Traffic Patrol';
   static const String appVersion = '1.0.0';
 
+  // API Base URL
+  static const String apiBaseUrl = 'https://trafficpolice.kkhsmedia.com/api';
+
   // Location update interval in seconds
   static const int locationUpdateInterval = 15;
 

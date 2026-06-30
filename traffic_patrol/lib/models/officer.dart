@@ -45,6 +45,38 @@ class Officer {
     );
   }
 
+  factory Officer.fromJson(Map<String, dynamic> data) {
+    return Officer(
+      id: (data['id'] ?? '').toString(),
+      name: data['name'] ?? '',
+      mobileNumber: data['mobileNumber'] ?? '',
+      badgeNumber: data['badgeNumber'] ?? '',
+      role: OfficerRole.fromString(data['role'] ?? 'constable'),
+      station: data['station'] ?? '',
+      district: data['district'],
+      state: data['state'],
+      isActive: data['isActive'] == 1 || data['isActive'] == true,
+      createdAt: data['createdAt'] != null
+          ? DateTime.tryParse(data['createdAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: data['updatedAt'] != null
+          ? DateTime.tryParse(data['updatedAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'mobileNumber': mobileNumber,
+      'badgeNumber': badgeNumber,
+      'role': role.name,
+      'station': station,
+      'district': district,
+      'state': state,
+    };
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,

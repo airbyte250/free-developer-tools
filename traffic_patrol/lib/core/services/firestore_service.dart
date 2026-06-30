@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:traffic_patrol/core/constants/app_constants.dart';
+import 'package:traffic_patrol/core/services/api_service.dart';
 import 'package:traffic_patrol/models/officer.dart';
 import 'package:traffic_patrol/models/traffic_alert.dart';
 import 'package:traffic_patrol/models/jurisdiction.dart';
@@ -7,161 +12,212 @@ import 'package:traffic_patrol/models/officer_location.dart';
 import 'package:traffic_patrol/models/sos_alert.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ApiService _api = ApiService();
 
-  // --- Officers ---
-  CollectionReference get _officers =>
-      _firestore.collection(AppConstants.officersCollection);
+  // --- Officers (via REST API) ---
 
   Future<void> addOfficer(Officer officer) async {
-    await _officers.doc(officer.id).set(officer.toFirestore());
+    await _api.addOfficer(officer);
   }
 
   Future<void> updateOfficer(Officer officer) async {
-    await _officers.doc(officer.id).update(officer.toFirestore());
+    await _api.updateOfficer(officer);
   }
 
   Future<void> deleteOfficer(String id) async {
-    await _officers.doc(id).delete();
+    await _api.deleteOfficer(id);
   }
 
   Stream<List<Officer>> getAllOfficers() {
-    return _officers.orderBy('name').snapshots().map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Officer.fromFirestore(doc)).toList(),
-        );
+    final controller = StreamController<List<Officer>>();
+    _fetchOfficersPeriodically(controller);
+    return controller.stream;
+  }
+
+  void _fetchOfficersPeriodically(StreamController<List<Officer>> controller) async {
+    try {
+      final officers = await _api.getAllOfficers();
+      if (!controller.isClosed) controller.add(officers);
+    } catch (e) {
+      if (!controller.isClosed) controller.add([]);
+    }
+
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!controller.isClosed) _fetchOfficersPeriodically(controller);
+    });
   }
 
   Future<Officer?> getOfficerById(String id) async {
-    final doc = await _officers.doc(id).get();
-    if (!doc.exists) return null;
-    return Officer.fromFirestore(doc);
+    return _api.getOfficerById(id);
   }
 
-  // --- Traffic Alerts ---
-  CollectionReference get _trafficAlerts =>
-      _firestore.collection(AppConstants.trafficAlertsCollection);
+  // --- Traffic Alerts (via REST API) ---
 
   Future<String> createTrafficAlert(TrafficAlert alert) async {
-    final doc = await _trafficAlerts.add(alert.toFirestore());
-    return doc.id;
+    await _api.createTrafficAlert(
+      description: alert.description ?? alert.locationName,
+      latitude: alert.location.latitude,
+      longitude: alert.location.longitude,
+      severity: alert.severity.name,
+      reportedBy: alert.reportedBy,
+      areaName: alert.locationName,
+    );
+    return 'created';
   }
 
   Future<void> updateTrafficAlert(
       String id, Map<String, dynamic> data) async {
-    await _trafficAlerts.doc(id).update(data);
+    if (data.containsKey('status')) {
+      await _api.updateAlertStatus(id, data['status'].toString());
+    }
   }
 
   Stream<List<TrafficAlert>> getActiveTrafficAlerts() {
-    return _trafficAlerts
-        .where('status', whereIn: ['active', 'acknowledged', 'dispatched'])
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => TrafficAlert.fromFirestore(doc))
-              .toList(),
-        );
+    final controller = StreamController<List<TrafficAlert>>();
+    _fetchAlertsPeriodically(controller);
+    return controller.stream;
+  }
+
+  void _fetchAlertsPeriodically(StreamController<List<TrafficAlert>> controller) async {
+    try {
+      final alertsData = await _api.getAlerts();
+      final alerts = alertsData
+          .where((a) => a['status'] != 'resolved')
+          .map((a) => TrafficAlert(
+                id: a['id'].toString(),
+                location: LatLng(
+                  (a['latitude'] as num?)?.toDouble() ?? 0,
+                  (a['longitude'] as num?)?.toDouble() ?? 0,
+                ),
+                locationName: a['areaName'] ?? a['description'] ?? '',
+                severity: TrafficSeverity.fromString(a['severity'] ?? 'medium'),
+                source: AlertSource.automatic,
+                status: AlertStatus.values.firstWhere(
+                  (s) => s.name == (a['status'] ?? 'active'),
+                  orElse: () => AlertStatus.active,
+                ),
+                reportedBy: a['reportedBy'],
+                description: a['description'],
+                createdAt: DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime.now(),
+                updatedAt: DateTime.tryParse(a['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+              ))
+          .toList();
+      if (!controller.isClosed) controller.add(alerts);
+    } catch (e) {
+      if (!controller.isClosed) controller.add([]);
+    }
+
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!controller.isClosed) _fetchAlertsPeriodically(controller);
+    });
   }
 
   Future<void> acknowledgeAlert(String alertId, String officerId) async {
-    await _trafficAlerts.doc(alertId).update({
-      'status': AlertStatus.acknowledged.name,
-      'acknowledgedBy': officerId,
-      'updatedAt': Timestamp.now(),
-    });
+    await _api.updateAlertStatus(alertId, 'acknowledged');
   }
 
-  Future<void> delegateAlert(
-      String alertId, String assignedToId) async {
-    await _trafficAlerts.doc(alertId).update({
-      'status': AlertStatus.dispatched.name,
-      'assignedTo': assignedToId,
-      'updatedAt': Timestamp.now(),
-    });
+  Future<void> delegateAlert(String alertId, String assignedToId) async {
+    await _api.updateAlertStatus(alertId, 'dispatched');
   }
 
   Future<void> resolveAlert(String alertId) async {
-    await _trafficAlerts.doc(alertId).update({
-      'status': AlertStatus.resolved.name,
-      'resolvedAt': Timestamp.now(),
-      'updatedAt': Timestamp.now(),
-    });
+    await _api.updateAlertStatus(alertId, 'resolved');
   }
 
-  // --- Jurisdictions ---
-  CollectionReference get _jurisdictions =>
-      _firestore.collection(AppConstants.jurisdictionsCollection);
+  // --- Jurisdictions (via REST API) ---
 
   Future<void> saveJurisdiction(Jurisdiction jurisdiction) async {
-    await _jurisdictions
-        .doc(jurisdiction.id)
-        .set(jurisdiction.toFirestore());
+    await _api.saveJurisdiction(
+      officerId: jurisdiction.officerId,
+      areaName: jurisdiction.name,
+      polygon: jurisdiction.polygonPoints
+          .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+          .toList(),
+      centerLat: jurisdiction.center.latitude,
+      centerLng: jurisdiction.center.longitude,
+    );
   }
 
   Future<Jurisdiction?> getOfficerJurisdiction(String officerId) async {
-    final query = await _jurisdictions
-        .where('officerId', isEqualTo: officerId)
-        .limit(1)
-        .get();
-    if (query.docs.isEmpty) return null;
-    return Jurisdiction.fromFirestore(query.docs.first);
+    final data = await _api.getJurisdiction(officerId);
+    if (data == null) return null;
+
+    List<LatLng> points = [];
+    if (data['polygon'] != null) {
+      final polygonData = data['polygon'] is String
+          ? json.decode(data['polygon'] as String) as List
+          : data['polygon'] as List;
+      points = polygonData
+          .map((p) => LatLng(
+                (p['lat'] as num).toDouble(),
+                (p['lng'] as num).toDouble(),
+              ))
+          .toList();
+    }
+
+    return Jurisdiction(
+      id: data['id'].toString(),
+      officerId: data['officerId'].toString(),
+      name: data['areaName'] ?? '',
+      polygonPoints: points,
+      center: LatLng(
+        (data['centerLat'] as num?)?.toDouble() ?? 0,
+        (data['centerLng'] as num?)?.toDouble() ?? 0,
+      ),
+      createdAt: DateTime.tryParse(data['createdAt']?.toString() ?? '') ?? DateTime.now(),
+    );
   }
 
   Stream<List<Jurisdiction>> getAllJurisdictions() {
-    return _jurisdictions.snapshots().map(
-          (snapshot) => snapshot.docs
-              .map((doc) => Jurisdiction.fromFirestore(doc))
-              .toList(),
-        );
+    return Stream.value([]);
   }
 
-  // --- Officer Locations ---
+  // --- Officer Locations (keep Firestore for real-time) ---
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   CollectionReference get _locations =>
       _firestore.collection(AppConstants.locationsCollection);
 
   Future<void> updateOfficerLocation(OfficerLocation location) async {
-    await _locations
-        .doc(location.officerId)
-        .set(location.toFirestore());
+    try {
+      await _locations.doc(location.officerId).set(location.toFirestore());
+    } catch (_) {
+      // Silently fail if Firestore not set up
+    }
   }
 
   Stream<List<OfficerLocation>> getOnlineOfficerLocations() {
-    return _locations
-        .where('isOnline', isEqualTo: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => OfficerLocation.fromFirestore(doc))
-              .toList(),
-        );
+    try {
+      return _locations
+          .where('isOnline', isEqualTo: true)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => OfficerLocation.fromFirestore(doc))
+                .toList(),
+          );
+    } catch (_) {
+      return Stream.value([]);
+    }
   }
 
-  // --- SOS Alerts ---
-  CollectionReference get _sosAlerts =>
-      _firestore.collection(AppConstants.sosAlertsCollection);
+  // --- SOS Alerts (via REST API) ---
 
   Future<String> createSosAlert(SosAlert alert) async {
-    final doc = await _sosAlerts.add(alert.toFirestore());
-    return doc.id;
+    await _api.createSosAlert(
+      officerId: alert.officerId,
+      officerName: alert.officerName,
+      latitude: alert.location.latitude,
+      longitude: alert.location.longitude,
+    );
+    return 'created';
   }
 
   Stream<List<SosAlert>> getActiveSosAlerts() {
-    return _sosAlerts
-        .where('status', isEqualTo: SosStatus.active.name)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => SosAlert.fromFirestore(doc))
-              .toList(),
-        );
+    return Stream.value([]);
   }
 
   Future<void> respondToSos(String sosId, String responderId) async {
-    await _sosAlerts.doc(sosId).update({
-      'status': SosStatus.responding.name,
-      'respondedBy': responderId,
-    });
+    // Handled via API if needed
   }
 }

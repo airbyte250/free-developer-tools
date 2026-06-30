@@ -10,7 +10,6 @@
     :root { --primary: #1a237e; --primary-light: #283593; --accent: #ffc107; }
     body { background: #f5f5f5; font-family: 'Segoe UI', sans-serif; }
 
-    /* Login */
     .login-page {
       background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #1565c0 100%);
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -27,10 +26,8 @@
     .btn-login { background: var(--primary); border: none; padding: 12px; font-size: 16px; font-weight: 600; }
     .btn-login:hover { background: var(--primary-light); }
 
-    /* Navbar */
     .navbar { background: linear-gradient(135deg, #1a237e, #283593) !important; }
 
-    /* Stats */
     .stat-card {
       border-radius: 15px; padding: 20px; color: white;
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -40,7 +37,6 @@
     .stat-card.inactive { background: linear-gradient(135deg, #c62828, #e53935); }
     .stat-number { font-size: 36px; font-weight: 700; }
 
-    /* Table */
     .officer-table {
       background: white; border-radius: 15px; overflow: hidden;
       box-shadow: 0 4px 15px rgba(0,0,0,0.08);
@@ -57,10 +53,8 @@
     .status-active { color: #2e7d32; }
     .status-inactive { color: #c62828; }
 
-    /* Modal */
     .modal-header { background: var(--primary); color: white; }
 
-    /* Alerts */
     .alert-card {
       background: white; border-radius: 12px; padding: 15px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 12px;
@@ -72,21 +66,14 @@
 
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .nav-tabs .nav-link.active { background: var(--primary) !important; color: white !important; border: none; }
 
-    #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8);
-      display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; }
   </style>
 </head>
 <body>
 
-  <!-- Loading -->
-  <div id="loading" style="display:none;">
-    <div class="text-center">
-      <div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div>
-      <p class="mt-3 fw-semibold">Loading...</p>
-    </div>
-  </div>
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <!-- Login Page -->
   <div id="loginPage" class="login-page">
@@ -207,6 +194,7 @@
         </div>
         <div class="modal-body">
           <div id="formError" class="alert alert-danger d-none"></div>
+          <div id="formSuccess" class="alert alert-success d-none"></div>
           <input type="hidden" id="officerId">
           <div class="row g-3">
             <div class="col-md-6">
@@ -258,7 +246,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" onclick="saveOfficer()" class="btn btn-primary" style="background:#1a237e;border:none;">
+          <button type="button" id="saveBtn" onclick="saveOfficer()" class="btn btn-primary" style="background:#1a237e;border:none;">
             <i class="fas fa-save me-2"></i>Save Officer
           </button>
         </div>
@@ -267,23 +255,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, limit, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyC0TjJAihT1wpMN_SFbVgIlh7657nK0TDI",
-      authDomain: "trafficweb-apps-add.firebaseapp.com",
-      projectId: "trafficweb-apps-add",
-      storageBucket: "trafficweb-apps-add.firebasestorage.app",
-      messagingSenderId: "1071254433829",
-      appId: "1:1071254433829:web:3acbd5dadb480184924fcc",
-      measurementId: "G-ESGMNV0MZV"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
+  <script>
+    const API_BASE = '/api';
     const ADMIN_USER = 'admin';
     const ADMIN_PASS = 'trafficpolice';
 
@@ -303,9 +276,33 @@
     };
 
     let officerModal;
+    let allOfficers = [];
+
+    // Toast notification
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show shadow`;
+      toast.style.minWidth = '300px';
+      toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    // API helper
+    async function api(url, options = {}) {
+      const res = await fetch(API_BASE + url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
 
     // Login
-    window.doLogin = function() {
+    function doLogin() {
       const user = document.getElementById('loginUsername').value;
       const pass = document.getElementById('loginPassword').value;
       if (user === ADMIN_USER && pass === ADMIN_PASS) {
@@ -318,12 +315,12 @@
         err.textContent = 'Invalid username or password';
         err.classList.remove('d-none');
       }
-    };
+    }
 
-    window.doLogout = function() {
+    function doLogout() {
       sessionStorage.removeItem('admin');
       location.reload();
-    };
+    }
 
     // Check session
     if (sessionStorage.getItem('admin') === 'true') {
@@ -333,30 +330,28 @@
     }
 
     // Tabs
-    window.showTab = function(tab) {
+    function showTab(tab) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-' + tab).classList.add('active');
       if (tab === 'alerts') loadAlerts();
       if (tab === 'sos') loadSos();
-    };
+    }
 
     // Officers
     async function loadOfficers() {
       try {
-        const q = query(collection(db, 'officers'), orderBy('name'));
-        onSnapshot(q, (snapshot) => {
-          const officers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          renderOfficers(officers);
-        });
+        allOfficers = await api('/officers');
+        renderOfficers(allOfficers);
       } catch (e) {
         console.error('Error loading officers:', e);
+        showToast('Error loading officers: ' + e.message, 'error');
         renderOfficers([]);
       }
     }
 
     function renderOfficers(officers) {
       const total = officers.length;
-      const active = officers.filter(o => o.isActive !== false).length;
+      const active = officers.filter(o => o.isActive === 1 || o.isActive === true).length;
       document.getElementById('statTotal').textContent = total;
       document.getElementById('statActive').textContent = active;
       document.getElementById('statInactive').textContent = total - active;
@@ -370,8 +365,9 @@
       tbody.innerHTML = officers.map((o, i) => {
         const role = ROLES[o.role] || { label: o.role, level: 0 };
         const roleClass = role.level >= 8 ? 'role-admin' : (role.level >= 5 ? 'role-senior' : 'role-junior');
-        const statusClass = o.isActive !== false ? 'status-active' : 'status-inactive';
-        const statusText = o.isActive !== false ? 'Active' : 'Inactive';
+        const isActive = o.isActive === 1 || o.isActive === true;
+        const statusClass = isActive ? 'status-active' : 'status-inactive';
+        const statusText = isActive ? 'Active' : 'Inactive';
         return `<tr>
           <td>${i + 1}</td>
           <td class="fw-semibold">${o.name}</td>
@@ -383,9 +379,9 @@
           <td><span class="${statusClass}"><i class="fas fa-circle small me-1"></i>${statusText}</span></td>
           <td>
             <div class="btn-group btn-group-sm">
-              <button onclick="editOfficer('${o.id}')" class="btn btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></button>
-              <button onclick="toggleOfficer('${o.id}', ${o.isActive !== false})" class="btn btn-outline-warning" title="Toggle"><i class="fas fa-power-off"></i></button>
-              <button onclick="deleteOfficer('${o.id}', '${o.name}')" class="btn btn-outline-danger" title="Delete"><i class="fas fa-trash"></i></button>
+              <button onclick="editOfficer(${o.id})" class="btn btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></button>
+              <button onclick="toggleOfficer(${o.id})" class="btn btn-outline-warning" title="Toggle"><i class="fas fa-power-off"></i></button>
+              <button onclick="deleteOfficer(${o.id}, '${o.name}')" class="btn btn-outline-danger" title="Delete"><i class="fas fa-trash"></i></button>
             </div>
           </td>
         </tr>`;
@@ -393,7 +389,7 @@
     }
 
     // Add Officer
-    window.openAddOfficer = function() {
+    function openAddOfficer() {
       document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i>Add Officer';
       document.getElementById('officerId').value = '';
       document.getElementById('officerName').value = '';
@@ -404,36 +400,32 @@
       document.getElementById('officerDistrict').value = '';
       document.getElementById('officerState').value = '';
       document.getElementById('formError').classList.add('d-none');
+      document.getElementById('formSuccess').classList.add('d-none');
       if (!officerModal) officerModal = new bootstrap.Modal(document.getElementById('officerModal'));
       officerModal.show();
-    };
+    }
 
     // Edit Officer
-    window.editOfficer = async function(id) {
-      try {
-        const snapshot = await getDocs(query(collection(db, 'officers')));
-        const officer = snapshot.docs.find(d => d.id === id);
-        if (!officer) return;
-        const data = officer.data();
-        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Officer';
-        document.getElementById('officerId').value = id;
-        document.getElementById('officerName').value = data.name || '';
-        document.getElementById('officerMobile').value = data.mobileNumber || '';
-        document.getElementById('officerBadge').value = data.badgeNumber || '';
-        document.getElementById('officerRole').value = data.role || '';
-        document.getElementById('officerStation').value = data.station || '';
-        document.getElementById('officerDistrict').value = data.district || '';
-        document.getElementById('officerState').value = data.state || '';
-        document.getElementById('formError').classList.add('d-none');
-        if (!officerModal) officerModal = new bootstrap.Modal(document.getElementById('officerModal'));
-        officerModal.show();
-      } catch (e) {
-        alert('Error loading officer: ' + e.message);
-      }
-    };
+    function editOfficer(id) {
+      const officer = allOfficers.find(o => o.id === id);
+      if (!officer) return;
+      document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Officer';
+      document.getElementById('officerId').value = id;
+      document.getElementById('officerName').value = officer.name || '';
+      document.getElementById('officerMobile').value = officer.mobileNumber || '';
+      document.getElementById('officerBadge').value = officer.badgeNumber || '';
+      document.getElementById('officerRole').value = officer.role || '';
+      document.getElementById('officerStation').value = officer.station || '';
+      document.getElementById('officerDistrict').value = officer.district || '';
+      document.getElementById('officerState').value = officer.state || '';
+      document.getElementById('formError').classList.add('d-none');
+      document.getElementById('formSuccess').classList.add('d-none');
+      if (!officerModal) officerModal = new bootstrap.Modal(document.getElementById('officerModal'));
+      officerModal.show();
+    }
 
     // Save Officer
-    window.saveOfficer = async function() {
+    async function saveOfficer() {
       const id = document.getElementById('officerId').value;
       const name = document.getElementById('officerName').value.trim();
       const mobile = document.getElementById('officerMobile').value.trim();
@@ -456,71 +448,63 @@
         return;
       }
 
+      const saveBtn = document.getElementById('saveBtn');
+      const originalText = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+      saveBtn.disabled = true;
+      document.getElementById('formError').classList.add('d-none');
+
       try {
-        document.getElementById('loading').style.display = 'flex';
-        const now = Timestamp.now();
+        const body = { name, mobileNumber: mobile, badgeNumber: badge, role, station, district: district || null, state: state || null };
 
         if (id) {
-          // Update
-          await updateDoc(doc(db, 'officers', id), {
-            name, mobileNumber: mobile, badgeNumber: badge, role, station,
-            district: district || null, state: state || null, updatedAt: now
-          });
+          await api('/officers/' + id, { method: 'PUT', body: JSON.stringify(body) });
+          showToast('Officer updated successfully!');
         } else {
-          // Check duplicate
-          const dup = await getDocs(query(collection(db, 'officers'), where('mobileNumber', '==', mobile), limit(1)));
-          if (!dup.empty) {
-            document.getElementById('loading').style.display = 'none';
-            const err = document.getElementById('formError');
-            err.textContent = 'This mobile number is already registered!';
-            err.classList.remove('d-none');
-            return;
-          }
-          // Add
-          await addDoc(collection(db, 'officers'), {
-            name, mobileNumber: mobile, badgeNumber: badge, role, station,
-            district: district || null, state: state || null,
-            isActive: true, createdAt: now, updatedAt: now
-          });
+          await api('/officers', { method: 'POST', body: JSON.stringify(body) });
+          showToast('Officer added successfully!');
         }
 
-        document.getElementById('loading').style.display = 'none';
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
         officerModal.hide();
+        loadOfficers();
       } catch (e) {
-        document.getElementById('loading').style.display = 'none';
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
         const err = document.getElementById('formError');
-        err.textContent = 'Error: ' + e.message;
+        err.textContent = e.message;
         err.classList.remove('d-none');
       }
-    };
+    }
 
     // Toggle Status
-    window.toggleOfficer = async function(id, currentStatus) {
+    async function toggleOfficer(id) {
       try {
-        await updateDoc(doc(db, 'officers', id), {
-          isActive: !currentStatus, updatedAt: Timestamp.now()
-        });
+        await api('/officers/' + id + '/toggle', { method: 'PATCH' });
+        showToast('Status changed!');
+        loadOfficers();
       } catch (e) {
-        alert('Error: ' + e.message);
+        showToast('Error: ' + e.message, 'error');
       }
-    };
+    }
 
     // Delete Officer
-    window.deleteOfficer = async function(id, name) {
-      if (!confirm(`Delete officer "${name}"? This cannot be undone.`)) return;
+    async function deleteOfficer(id, name) {
+      if (!confirm('Delete officer "' + name + '"? This cannot be undone.')) return;
       try {
-        await deleteDoc(doc(db, 'officers', id));
+        await api('/officers/' + id, { method: 'DELETE' });
+        showToast('Officer deleted!');
+        loadOfficers();
       } catch (e) {
-        alert('Error: ' + e.message);
+        showToast('Error: ' + e.message, 'error');
       }
-    };
+    }
 
     // Alerts
     async function loadAlerts() {
       try {
-        const q = query(collection(db, 'trafficAlerts'), orderBy('createdAt', 'desc'), limit(50));
-        const snapshot = await getDocs(q);
-        const alerts = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const alerts = await api('/alerts');
         const container = document.getElementById('alertsList');
 
         if (alerts.length === 0) {
@@ -536,22 +520,20 @@
                 <span class="badge bg-${a.status === 'active' ? 'danger' : (a.status === 'resolved' ? 'success' : 'secondary')}">${(a.status || 'active').toUpperCase()}</span>
               </div>
               <p class="mb-1 fw-semibold">${a.description || 'Traffic jam reported'}</p>
-              <small class="text-muted"><i class="fas fa-map-marker-alt me-1"></i>Lat: ${a.latitude ? a.latitude.toFixed(4) : 'N/A'}, Lng: ${a.longitude ? a.longitude.toFixed(4) : 'N/A'}</small><br>
-              <small class="text-muted"><i class="fas fa-clock me-1"></i>${a.createdAt ? new Date(a.createdAt.seconds * 1000).toLocaleString('en-IN') : 'N/A'}</small>
+              <small class="text-muted"><i class="fas fa-map-marker-alt me-1"></i>Lat: ${a.latitude ? Number(a.latitude).toFixed(4) : 'N/A'}, Lng: ${a.longitude ? Number(a.longitude).toFixed(4) : 'N/A'}</small><br>
+              <small class="text-muted"><i class="fas fa-clock me-1"></i>${a.createdAt ? new Date(a.createdAt).toLocaleString('en-IN') : 'N/A'}</small>
             </div>
           </div>
         `).join('');
       } catch (e) {
-        document.getElementById('alertsList').innerHTML = '<div class="col-12 text-center py-5 text-muted">Error loading alerts</div>';
+        document.getElementById('alertsList').innerHTML = '<div class="col-12 text-center py-5 text-muted">Error loading alerts: ' + e.message + '</div>';
       }
     }
 
     // SOS
     async function loadSos() {
       try {
-        const q = query(collection(db, 'sosAlerts'), orderBy('timestamp', 'desc'), limit(50));
-        const snapshot = await getDocs(q);
-        const alerts = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const alerts = await api('/sos');
         const container = document.getElementById('sosList');
 
         if (alerts.length === 0) {
@@ -567,19 +549,19 @@
                 <span class="badge bg-${a.status === 'active' ? 'danger' : 'success'}">${(a.status || 'active').toUpperCase()}</span>
               </div>
               <p class="fw-semibold mb-1">${a.officerName || 'Unknown Officer'}</p>
-              <small class="text-muted d-block"><i class="fas fa-map-marker-alt me-1"></i>Lat: ${a.latitude ? a.latitude.toFixed(4) : 'N/A'}, Lng: ${a.longitude ? a.longitude.toFixed(4) : 'N/A'}</small>
-              <small class="text-muted"><i class="fas fa-clock me-1"></i>${a.timestamp ? new Date(a.timestamp.seconds * 1000).toLocaleString('en-IN') : 'N/A'}</small>
+              <small class="text-muted d-block"><i class="fas fa-map-marker-alt me-1"></i>Lat: ${a.latitude ? Number(a.latitude).toFixed(4) : 'N/A'}, Lng: ${a.longitude ? Number(a.longitude).toFixed(4) : 'N/A'}</small>
+              <small class="text-muted"><i class="fas fa-clock me-1"></i>${a.timestamp ? new Date(a.timestamp).toLocaleString('en-IN') : 'N/A'}</small>
             </div>
           </div>
         `).join('');
       } catch (e) {
-        document.getElementById('sosList').innerHTML = '<div class="col-12 text-center py-5 text-muted">Error loading SOS alerts</div>';
+        document.getElementById('sosList').innerHTML = '<div class="col-12 text-center py-5 text-muted">Error loading SOS alerts: ' + e.message + '</div>';
       }
     }
 
     // Enter key on login
     document.getElementById('loginPassword').addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') window.doLogin();
+      if (e.key === 'Enter') doLogin();
     });
   </script>
 </body>
