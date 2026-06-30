@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
+import 'package:traffic_patrol/core/services/auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -41,7 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() {
         _isLoading = false;
         _errorMessage =
-            'यह मोबाइल नंबर registered नहीं है। कृपया Admin से संपर्क करें।';
+            'यह मोबाइल नंबर registered नहीं है।\nपहले Admin Panel से officer add करें।';
       });
       return;
     }
@@ -49,17 +50,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     authService.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       verificationCompleted: (credential) async {
-        // Auto-verify on Android
-        await authService.signInWithCredential(credential);
-        if (mounted) {
-          ref.read(currentOfficerProvider.notifier).setOfficer(officer);
-          final firestoreService = ref.read(firestoreServiceProvider);
-          final jurisdiction =
-              await firestoreService.getOfficerJurisdiction(officer.id);
-          if (jurisdiction == null) {
-            context.go('/jurisdiction');
-          } else {
-            context.go('/dashboard');
+        // Auto-verify on Android (only in production mode)
+        if (!AuthService.testMode) {
+          await authService.signInWithCredential(credential);
+          if (mounted) {
+            ref.read(currentOfficerProvider.notifier).setOfficer(officer);
+            final firestoreService = ref.read(firestoreServiceProvider);
+            final jurisdiction =
+                await firestoreService.getOfficerJurisdiction(officer.id);
+            if (jurisdiction == null) {
+              context.go('/jurisdiction');
+            } else {
+              context.go('/dashboard');
+            }
           }
         }
       },

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
+import 'package:traffic_patrol/core/services/auth_service.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   final String phoneNumber;
@@ -45,7 +46,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         otp: otp,
       );
 
-      // Fetch officer data
+      // Fetch officer data using the phone number from login
       final officer =
           await authService.getOfficerByPhone(widget.phoneNumber);
       if (officer != null && mounted) {
@@ -69,7 +70,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'गलत OTP। कृपया दोबारा प्रयास करें।';
+        _errorMessage = AuthService.testMode
+            ? 'गलत OTP। कृपया 123456 डालें।'
+            : 'गलत OTP। कृपया दोबारा प्रयास करें।';
       });
     }
   }
@@ -108,7 +111,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'OTP भेजा गया है ${widget.phoneNumber} पर',
+                    AuthService.testMode
+                        ? 'Test Mode: OTP है 123456'
+                        : 'OTP भेजा गया है ${widget.phoneNumber} पर',
                     style: const TextStyle(
                       fontSize: 14,
                       color: AppColors.accent,

@@ -7,9 +7,14 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // TEST MODE: Set to false when real Firebase Phone Auth is ready
+  static const bool testMode = true;
+  static const String testOtp = '123456';
+
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // In test mode, we skip Firebase Phone Auth and just validate OTP locally
   Future<void> verifyPhoneNumber({
     required String phoneNumber,
     required void Function(PhoneAuthCredential) verificationCompleted,
@@ -17,6 +22,12 @@ class AuthService {
     required void Function(String, int?) codeSent,
     required void Function(String) codeAutoRetrievalTimeout,
   }) async {
+    if (testMode) {
+      // In test mode, immediately call codeSent with a dummy verification ID
+      codeSent('test-verification-id', null);
+      return;
+    }
+
     await _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       verificationCompleted: verificationCompleted,
@@ -32,10 +43,21 @@ class AuthService {
     return await _auth.signInWithCredential(credential);
   }
 
-  Future<UserCredential> signInWithOTP({
+  Future<UserCredential?> signInWithOTP({
     required String verificationId,
     required String otp,
   }) async {
+    if (testMode) {
+      // In test mode, just validate OTP is '123456'
+      if (otp == testOtp) {
+        // In test mode, we don't need actual Firebase auth
+        // Just return null - the app will use the officer data from Firestore
+        return null;
+      } else {
+        throw Exception('गलत OTP। कृपया 123456 डालें।');
+      }
+    }
+
     final credential = PhoneAuthProvider.credential(
       verificationId: verificationId,
       smsCode: otp,
@@ -72,7 +94,15 @@ class AuthService {
 
   Future<Officer?> getCurrentOfficer() async {
     final user = currentUser;
-    if (user == null || user.phoneNumber == null) return null;
+    if (user == null) return null;
+
+    if (testMode) {
+      // In test mode, we can't use phone number from user (since anonymous)
+      // We'll need to get it from shared preferences or pass it around
+      return null;
+    }
+
+    if (user.phoneNumber == null) return null;
     return getOfficerByPhone(user.phoneNumber!);
   }
 

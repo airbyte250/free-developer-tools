@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
+import 'package:traffic_patrol/core/services/auth_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -41,8 +42,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final authService = ref.read(authServiceProvider);
     final user = authService.currentUser;
 
-    if (user != null) {
-      // User is logged in, check if officer exists
+    if (user != null && !AuthService.testMode) {
+      // User is logged in, check if officer exists (only in production mode)
       final officer = await authService.getCurrentOfficer();
       if (officer != null && mounted) {
         ref.read(currentOfficerProvider.notifier).setOfficer(officer);
