@@ -165,4 +165,43 @@ class ApiService {
     if (response.statusCode == 404) return null;
     throw Exception('Failed to load jurisdiction');
   }
+
+  // ============ OFFICER LOCATIONS ============
+
+  Future<void> updateLocation({
+    required String officerId,
+    required String officerName,
+    required double latitude,
+    required double longitude,
+    required double speed,
+    required double heading,
+  }) async {
+    await http.post(
+      Uri.parse('$_baseUrl/locations'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'officerId': officerId,
+        'officerName': officerName,
+        'latitude': latitude,
+        'longitude': longitude,
+        'speed': speed,
+        'heading': heading,
+      }),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getOnlineLocations() async {
+    final response = await http.get(Uri.parse('$_baseUrl/locations'));
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(json.decode(response.body));
+    }
+    return [];
+  }
+
+  Future<void> setOffline(String officerId) async {
+    await http.patch(
+      Uri.parse('$_baseUrl/locations/$officerId/offline'),
+      headers: {'Content-Type': 'application/json'},
+    );
+  }
 }

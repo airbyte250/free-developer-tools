@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:traffic_patrol/core/constants/app_constants.dart';
 import 'package:traffic_patrol/core/services/api_service.dart';
 import 'package:traffic_patrol/models/officer.dart';
 import 'package:traffic_patrol/models/traffic_alert.dart';
@@ -172,33 +170,48 @@ class FirestoreService {
     return Stream.value([]);
   }
 
-  // --- Officer Locations (keep Firestore for real-time) ---
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  CollectionReference get _locations =>
-      _firestore.collection(AppConstants.locationsCollection);
+  // --- Officer Locations (via REST API) ---
 
   Future<void> updateOfficerLocation(OfficerLocation location) async {
-    try {
-      await _locations.doc(location.officerId).set(location.toFirestore());
-    } catch (_) {
-      // Silently fail if Firestore not set up
-    }
+    await _api.updateLocation(
+      officerId: location.officerId,
+      officerName: location.officerName,
+      latitude: location.position.latitude,
+      longitude: location.position.longitude,
+      speed: location.speed,
+      heading: location.heading,
+    );
   }
 
   Stream<List<OfficerLocation>> getOnlineOfficerLocations() {
+    final controller = StreamController<List<OfficerLocation>>();
+    _fetchLocationsPeriodically(controller);
+    return controller.stream;
+  }
+
+  void _fetchLocationsPeriodically(StreamController<List<OfficerLocation>> controller) async {
     try {
-      return _locations
-          .where('isOnline', isEqualTo: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => OfficerLocation.fromFirestore(doc))
-                .toList(),
-          );
-    } catch (_) {
-      return Stream.value([]);
+      final locData = await _api.getOnlineLocations();
+      final locations = locData.map((d) => OfficerLocation(
+        officerId: d['officerId'].toString(),
+        officerName: d['officerName'] ?? '',
+        position: LatLng(
+          (d['latitude'] as num).toDouble(),
+          (d['longitude'] as num).toDouble(),
+        ),
+        speed: (d['speed'] as num?)?.toDouble() ?? 0,
+        heading: (d['heading'] as num?)?.toDouble() ?? 0,
+        isOnline: true,
+        lastUpdated: DateTime.tryParse(d['lastUpdated']?.toString() ?? '') ?? DateTime.now(),
+      )).toList();
+      if (!controller.isClosed) controller.add(locations);
+    } catch (e) {
+      if (!controller.isClosed) controller.add([]);
     }
+
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!controller.isClosed) _fetchLocationsPeriodically(controller);
+    });
   }
 
   // --- SOS Alerts (via REST API) ---

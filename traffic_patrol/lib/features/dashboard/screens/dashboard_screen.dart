@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/constants/role_hierarchy.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
+import 'package:traffic_patrol/core/services/api_service.dart';
 import 'package:traffic_patrol/features/dashboard/widgets/alert_card.dart';
 import 'package:traffic_patrol/features/dashboard/widgets/stats_card.dart';
 import 'package:traffic_patrol/models/traffic_alert.dart';
@@ -14,11 +18,79 @@ final trafficAlertsProvider = StreamProvider<List<TrafficAlert>>((ref) {
   return firestoreService.getActiveTrafficAlerts();
 });
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  Timer? _locationTimer;
+  final ApiService _apiService = ApiService();
+  StreamSubscription<Position>? _positionSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _startLocationTracking();
+  }
+
+  @override
+  void dispose() {
+    _locationTimer?.cancel();
+    _positionSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startLocationTracking() async {
+    final officer = ref.read(currentOfficerProvider);
+    if (officer == null) return;
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+    if (permission == LocationPermission.deniedForever) return;
+
+    _positionSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((position) {
+      final off = ref.read(currentOfficerProvider);
+      if (off == null) return;
+      _apiService.updateLocation(
+        officerId: off.id,
+        officerName: off.name,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: (position.speed * 3.6).clamp(0, 200),
+        heading: position.heading,
+      );
+    });
+
+    // Also send current position immediately
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      _apiService.updateLocation(
+        officerId: officer.id,
+        officerName: officer.name,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        speed: (pos.speed * 3.6).clamp(0, 200),
+        heading: pos.heading,
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final officer = ref.watch(currentOfficerProvider);
     final alertsAsync = ref.watch(trafficAlertsProvider);
 
@@ -45,6 +117,11 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              _positionSub?.cancel();
+              final off = ref.read(currentOfficerProvider);
+              if (off != null) {
+                try { await _apiService.setOffline(off.id); } catch (_) {}
+              }
               final prefs = await SharedPreferences.getInstance();
               await prefs.remove('logged_in_phone');
               await ref.read(authServiceProvider).signOut();
