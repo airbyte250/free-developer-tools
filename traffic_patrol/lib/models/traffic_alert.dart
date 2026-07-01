@@ -100,6 +100,29 @@ class TrafficAlert {
     );
   }
 
+  factory TrafficAlert.fromJson(Map<String, dynamic> data) {
+    return TrafficAlert(
+      id: data['id']?.toString() ?? '',
+      location: LatLng(
+        (data['latitude'] as num?)?.toDouble() ?? 0,
+        (data['longitude'] as num?)?.toDouble() ?? 0,
+      ),
+      locationName: data['areaName'] ?? '',
+      severity: TrafficSeverity.fromString(data['severity'] ?? 'medium'),
+      source: (data['reportedBy'] ?? '').toString().contains('Auto')
+          ? AlertSource.automatic
+          : AlertSource.manualOfficer,
+      status: AlertStatus.values.firstWhere(
+        (s) => s.name == (data['status'] ?? 'active'),
+        orElse: () => AlertStatus.active,
+      ),
+      reportedBy: data['reportedBy'],
+      description: data['description'],
+      createdAt: DateTime.tryParse(data['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(data['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'location': {

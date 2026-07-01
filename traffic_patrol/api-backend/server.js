@@ -346,7 +346,9 @@ app.get('/api/stats', async (req, res) => {
 const MAPS_API_KEY = 'AIzaSyAy_bbDc2scwaxORMUiCA_MtNJFjUFpU28';
 const fetch = require('node-fetch');
 
-// Track notified jams to avoid duplicates
+// Track active jams: key -> { alertId, severity, firstDetected, officerId, areaName, locationName, lat, lng }
+const activeJams = new Map();
+// Track notification timestamps to avoid duplicates
 const notifiedJams = new Map();
 
 async function checkTrafficForAllOfficers() {
@@ -407,10 +409,14 @@ async function checkTrafficForJurisdiction(jurisdiction) {
     });
   }
 
+  // Track which routes still have jams this cycle
+  const activeRouteKeys = new Set();
+
   // Check traffic on routes between consecutive check points (limit to 3 routes)
   for (let i = 0; i < Math.min(checkPoints.length - 1, 3); i++) {
     const origin = checkPoints[i];
     const dest = checkPoints[i + 1];
+    const routeKey = `${officerId}_${i}`;
     
     try {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${dest.lat},${dest.lng}&departure_time=now&key=${MAPS_API_KEY}`;
@@ -445,34 +451,87 @@ async function checkTrafficForJurisdiction(jurisdiction) {
           description = `मध्यम ट्रैफिक - सामान्य से ${Math.round((ratio - 1) * 100)}% ज्यादा समय`;
         }
 
-        if (severity) {
-          const jamLat = leg.start_location?.lat || origin.lat;
-          const jamLng = leg.start_location?.lng || origin.lng;
-          const jamKey = `${officerId}_${jamLat.toFixed(3)}_${jamLng.toFixed(3)}`;
+        const jamLat = leg.start_location?.lat || origin.lat;
+        const jamLng = leg.start_location?.lng || origin.lng;
+        const locationName = leg.start_address ? leg.start_address.split(',')[0] : areaName;
 
-          // Check delay
-          if (notifiedJams.has(jamKey)) {
-            const firstDetected = notifiedJams.get(jamKey);
-            const elapsedMinutes = (Date.now() - firstDetected) / 60000;
-            
-            if (elapsedMinutes < (notifyDelayMinutes || 0)) continue;
-            if (elapsedMinutes < 15) continue; // Don't re-notify within 15 min
+        if (severity) {
+          // JAM DETECTED - mark this route as active
+          activeRouteKeys.add(routeKey);
+
+          // Check if this is a new jam or already tracked
+          if (activeJams.has(routeKey)) {
+            // Already tracking this jam - update severity if changed
+            const existing = activeJams.get(routeKey);
+            if (existing.severity !== severity) {
+              // Severity changed - update
+              await pool.query('UPDATE traffic_alerts SET severity = ?, description = ? WHERE id = ?',
+                [severity, description, existing.alertId]);
+              activeJams.set(routeKey, { ...existing, severity });
+              console.log(`Traffic severity changed: ${existing.severity} → ${severity} in ${areaName} - ${locationName}`);
+            }
+            continue; // Already notified, don't re-notify
           }
 
-          notifiedJams.set(jamKey, Date.now());
+          // Check delay for new jams
+          if (notifiedJams.has(routeKey)) {
+            const lastNotified = notifiedJams.get(routeKey);
+            const elapsedMinutes = (Date.now() - lastNotified) / 60000;
+            if (elapsedMinutes < (notifyDelayMinutes || 0)) continue;
+            if (elapsedMinutes < 5) continue; // Minimum 5 min gap after resolve
+          }
 
-          const locationName = leg.start_address ? leg.start_address.split(',')[0] : areaName;
-
-          // Save alert to database
-          await pool.query(
+          // NEW JAM - save alert and notify
+          const nowTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+          const trafficPercent = Math.round((ratio - 1) * 100);
+          const detailedDesc = `${description} | Detected: ${nowTime} | Traffic: ${trafficPercent}% slow`;
+          const [result] = await pool.query(
             'INSERT INTO traffic_alerts (description, latitude, longitude, severity, reportedBy, areaName) VALUES (?, ?, ?, ?, ?, ?)',
-            [description, jamLat, jamLng, severity, 'Auto Detection', `${areaName} - ${locationName}`]
+            [detailedDesc, jamLat, jamLng, severity, 'Auto Detection', `${areaName} - ${locationName}`]
           );
 
-          console.log(`Traffic alert: ${severity} in ${areaName} - ${locationName} for officer ${officerId}`);
+          activeJams.set(routeKey, {
+            alertId: result.insertId,
+            severity,
+            firstDetected: Date.now(),
+            officerId, areaName, locationName,
+            lat: jamLat, lng: jamLng
+          });
+          notifiedJams.set(routeKey, Date.now());
 
-          // Send FCM notification to officer and seniors
+          console.log(`NEW Traffic alert: ${severity} in ${areaName} - ${locationName} for officer ${officerId}`);
+
+          // Send notification
           await sendTrafficNotifications(jurisdiction, severity, description, locationName, jamLat, jamLng);
+
+        } else {
+          // TRAFFIC NORMAL on this route - check if there was an active jam that is now resolved
+          if (activeJams.has(routeKey)) {
+            const resolved = activeJams.get(routeKey);
+            const durationMinutes = Math.round((Date.now() - resolved.firstDetected) / 60000);
+
+            // Mark alert as resolved in database
+            await pool.query('UPDATE traffic_alerts SET status = ? WHERE id = ?', ['resolved', resolved.alertId]);
+
+            // Create a "resolved" notification with time details
+            const detectedTime = new Date(resolved.firstDetected).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const clearedTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const resolveDesc = `ट्रैफिक सामान्य हो गया | Jam: ${detectedTime} - ${clearedTime} (${durationMinutes} min)`;
+            
+            // Save resolved alert
+            await pool.query(
+              'INSERT INTO traffic_alerts (description, latitude, longitude, severity, reportedBy, areaName, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [resolveDesc, resolved.lat, resolved.lng, 'resolved', 'Auto Detection', `${resolved.areaName} - ${resolved.locationName}`, 'resolved']
+            );
+
+            console.log(`RESOLVED: Traffic cleared in ${resolved.areaName} - ${resolved.locationName} after ${durationMinutes} min`);
+
+            // Send "traffic cleared" notification
+            await sendTrafficClearedNotification(jurisdiction, resolved.locationName, durationMinutes);
+
+            activeJams.delete(routeKey);
+            notifiedJams.set(routeKey, Date.now());
+          }
         }
       }
     } catch (e) {
@@ -520,6 +579,26 @@ async function sendTrafficNotifications(jurisdiction, severity, description, loc
       // Note: Legacy FCM requires server key - will work when service account is configured
       // For now, the app handles local notifications via TrafficMonitorService
       console.log(`Would send FCM to ${officer.name} (${officer.role}): ${severity} alert in ${areaName}`);
+    } catch (e) {
+      // Skip failed notification
+    }
+  }
+}
+
+async function sendTrafficClearedNotification(jurisdiction, locationName, durationMinutes) {
+  const { officerId, areaName } = jurisdiction;
+
+  // Get officer's FCM token
+  const [officers] = await pool.query(`
+    SELECT id, name, fcmToken, role FROM officers 
+    WHERE isActive = 1 AND fcmToken IS NOT NULL AND fcmToken != ''
+    AND (id = ? OR role IN ('inspector', 'dsp', 'addl_sp', 'sp', 'dig', 'ig', 'adgp', 'dgp'))
+  `, [officerId]);
+
+  for (const officer of officers) {
+    if (!officer.fcmToken) continue;
+    try {
+      console.log(`Would send RESOLVED FCM to ${officer.name}: Traffic cleared in ${areaName} - ${locationName} after ${durationMinutes} min`);
     } catch (e) {
       // Skip failed notification
     }

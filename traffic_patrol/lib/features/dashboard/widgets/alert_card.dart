@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
@@ -105,6 +106,44 @@ class AlertCard extends ConsumerWidget {
                 ),
               ),
             ],
+
+            const SizedBox(height: 8),
+
+            // Time info row
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Detected: ${DateFormat('hh:mm a, dd MMM').format(alert.createdAt)}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  if (alert.status == AlertStatus.resolved && alert.resolvedAt != null) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.check_circle_outline, size: 14, color: AppColors.successGreen),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Cleared: ${DateFormat('hh:mm a').format(alert.resolvedAt!)} (${alert.resolvedAt!.difference(alert.createdAt).inMinutes} min)',
+                      style: const TextStyle(fontSize: 12, color: AppColors.successGreen),
+                    ),
+                  ] else ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.timer, size: 14, color: AppColors.sosRed),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${DateTime.now().difference(alert.createdAt).inMinutes} min ago',
+                      style: const TextStyle(fontSize: 12, color: AppColors.sosRed),
+                    ),
+                  ],
+                ],
+              ),
+            ),
 
             const Divider(height: 24),
 

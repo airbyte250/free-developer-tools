@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:traffic_patrol/core/services/api_service.dart';
 import 'package:traffic_patrol/core/services/notification_service.dart';
@@ -19,8 +20,10 @@ class TrafficMonitorService {
   static const String _delayPrefKey = 'traffic_notify_delay_minutes';
   static const String _enabledPrefKey = 'traffic_notify_enabled';
 
-  // Track active jam locations to avoid duplicate notifications
-  final Map<String, DateTime> _notifiedJams = {};
+  // Track active jams: routeIndex -> jam info
+  final Map<int, _ActiveJam> _activeJams = {};
+  // Track last notification time per route to avoid spam
+  final Map<int, DateTime> _lastNotifyTime = {};
 
   TrafficMonitorService(this._notificationService);
 
@@ -94,16 +97,13 @@ class TrafficMonitorService {
     if (!enabled) return;
 
     try {
-      // Generate sample route points within jurisdiction
       final checkPoints = _generateCheckPoints();
       if (checkPoints.length < 2) return;
 
-      // Check traffic on routes between points in the area
       for (int i = 0; i < checkPoints.length - 1; i++) {
         final origin = checkPoints[i];
         final destination = checkPoints[i + 1];
-        await _checkRoute(origin, destination);
-        // Small delay between API calls
+        await _checkRoute(origin, destination, i);
         await Future.delayed(const Duration(milliseconds: 500));
       }
     } catch (_) {}
@@ -114,7 +114,6 @@ class TrafficMonitorService {
 
     final points = <LatLng>[_areaCenter!];
 
-    // Add midpoints of jurisdiction edges
     for (int i = 0; i < _jurisdictionPoints.length; i++) {
       final p1 = _jurisdictionPoints[i];
       final p2 = _jurisdictionPoints[(i + 1) % _jurisdictionPoints.length];
@@ -124,14 +123,13 @@ class TrafficMonitorService {
       ));
     }
 
-    // Limit to 4 check points to save API quota
     if (points.length > 4) {
       return [points[0], points[1], points[2], points[3]];
     }
     return points;
   }
 
-  Future<void> _checkRoute(LatLng origin, LatLng destination) async {
+  Future<void> _checkRoute(LatLng origin, LatLng destination, int routeIndex) async {
     try {
       final url = Uri.parse(
         'https://maps.googleapis.com/maps/api/directions/json'
@@ -159,59 +157,63 @@ class TrafficMonitorService {
 
         if (normalDuration == 0) continue;
 
-        // Calculate traffic ratio
         final ratio = trafficDuration / normalDuration;
-        
+        final trafficPercent = ((ratio - 1) * 100).toInt();
+
         String? severity;
-        String? description;
 
         if (ratio > 2.0) {
           severity = 'critical';
-          description = 'बहुत भारी जाम - सामान्य से ${((ratio - 1) * 100).toInt()}% ज्यादा समय';
         } else if (ratio > 1.5) {
           severity = 'high';
-          description = 'भारी ट्रैफिक - सामान्य से ${((ratio - 1) * 100).toInt()}% ज्यादा समय';
         } else if (ratio > 1.25) {
           severity = 'medium';
-          description = 'मध्यम ट्रैफिक - सामान्य से ${((ratio - 1) * 100).toInt()}% ज्यादा समय';
         }
 
+        final startLoc = leg['start_location'];
+        final jamLat = (startLoc['lat'] as num).toDouble();
+        final jamLng = (startLoc['lng'] as num).toDouble();
+        final startAddress = (leg['start_address'] ?? '').toString();
+        final locationName = startAddress.isNotEmpty
+            ? startAddress.split(',').first
+            : (_areaName ?? 'Unknown');
+
+        final now = DateTime.now();
+        final timeStr = DateFormat('hh:mm a').format(now);
+
         if (severity != null) {
-          // Get the jam location
-          final startLoc = leg['start_location'];
-          final jamLat = (startLoc['lat'] as num).toDouble();
-          final jamLng = (startLoc['lng'] as num).toDouble();
-          final jamKey = '${jamLat.toStringAsFixed(3)}_${jamLng.toStringAsFixed(3)}';
-
-          // Check notification delay
-          final delayMinutes = await getNotifyDelayMinutes();
-          final now = DateTime.now();
-
-          if (_notifiedJams.containsKey(jamKey)) {
-            final firstDetected = _notifiedJams[jamKey]!;
-            final elapsedMinutes = now.difference(firstDetected).inMinutes;
-            
-            if (elapsedMinutes < delayMinutes) {
-              continue; // Not enough time elapsed, skip notification
-            }
-
-            // Already notified and delay passed, check if we should re-notify
-            // Don't re-notify for same location within 15 minutes
-            if (elapsedMinutes < 15) continue;
+          // JAM DETECTED
+          if (_activeJams.containsKey(routeIndex)) {
+            // Already tracking - skip re-notification
+            continue;
           }
 
-          _notifiedJams[jamKey] = now;
+          // Check delay
+          final delayMinutes = await getNotifyDelayMinutes();
+          if (_lastNotifyTime.containsKey(routeIndex)) {
+            final elapsed = now.difference(_lastNotifyTime[routeIndex]!).inMinutes;
+            if (elapsed < delayMinutes) continue;
+            if (elapsed < 5) continue;
+          }
 
-          // Determine location name from Google
-          final startAddress = leg['start_address'] ?? '';
-          final locationName = startAddress.isNotEmpty
-              ? startAddress.toString().split(',').first
-              : (_areaName ?? 'Unknown');
+          // NEW JAM
+          _activeJams[routeIndex] = _ActiveJam(
+            severity: severity,
+            detectedAt: now,
+            lat: jamLat,
+            lng: jamLng,
+            locationName: locationName,
+            trafficPercent: trafficPercent,
+          );
+          _lastNotifyTime[routeIndex] = now;
 
-          // Create alert on server
+          final severityLabel = _getSeverityLabel(severity);
+          final description = _getDescription(severity, trafficPercent);
+
+          // Save to server
           try {
             await _api.createTrafficAlert(
-              description: description!,
+              description: '$description | Detected: $timeStr | Traffic: $trafficPercent% slow',
               latitude: jamLat,
               longitude: jamLng,
               severity: severity,
@@ -220,18 +222,54 @@ class TrafficMonitorService {
             );
           } catch (_) {}
 
-          // Show local notification
+          // Show notification with full details
           await _notificationService.showTrafficAlert(
-            title: '${_getSeverityEmoji(severity)} Traffic Alert - $_areaName',
-            body: '$locationName पर $description',
+            title: '$severityLabel Traffic Alert - $_areaName',
+            body: '$locationName पर $description\n'
+                'Time: $timeStr | Traffic: $trafficPercent% slow',
             payload: '$jamLat,$jamLng',
           );
+
+        } else {
+          // TRAFFIC NORMAL - check if previously jammed (auto-resolve)
+          if (_activeJams.containsKey(routeIndex)) {
+            final resolved = _activeJams[routeIndex]!;
+            final durationMinutes = now.difference(resolved.detectedAt).inMinutes;
+            final detectedTimeStr = DateFormat('hh:mm a').format(resolved.detectedAt);
+            final clearedTimeStr = DateFormat('hh:mm a').format(now);
+
+            _activeJams.remove(routeIndex);
+            _lastNotifyTime[routeIndex] = now;
+
+            // Save resolved alert to server
+            try {
+              await _api.createTrafficAlert(
+                description: 'Traffic cleared after $durationMinutes min | '
+                    'Jam: $detectedTimeStr - $clearedTimeStr | '
+                    'Was: ${resolved.trafficPercent}% slow',
+                latitude: resolved.lat,
+                longitude: resolved.lng,
+                severity: 'resolved',
+                reportedBy: 'Auto Detection',
+                areaName: '$_areaName - ${resolved.locationName}',
+              );
+            } catch (_) {}
+
+            // Show "traffic cleared" notification
+            await _notificationService.showTrafficAlert(
+              title: 'Traffic Cleared - $_areaName',
+              body: '${resolved.locationName} पर traffic normal ho gaya\n'
+                  'Jam tha: $detectedTimeStr se $clearedTimeStr ($durationMinutes min)\n'
+                  'Traffic tha: ${resolved.trafficPercent}% slow',
+              payload: '${resolved.lat},${resolved.lng}',
+            );
+          }
         }
       }
     } catch (_) {}
   }
 
-  String _getSeverityEmoji(String severity) {
+  String _getSeverityLabel(String severity) {
     switch (severity) {
       case 'critical':
         return 'CRITICAL';
@@ -244,4 +282,34 @@ class TrafficMonitorService {
     }
   }
 
+  String _getDescription(String severity, int percent) {
+    switch (severity) {
+      case 'critical':
+        return 'बहुत भारी जाम - सामान्य से $percent% ज्यादा समय';
+      case 'high':
+        return 'भारी ट्रैफिक - सामान्य से $percent% ज्यादा समय';
+      case 'medium':
+        return 'मध्यम ट्रैफिक - सामान्य से $percent% ज्यादा समय';
+      default:
+        return 'ट्रैफिक alert';
+    }
+  }
+}
+
+class _ActiveJam {
+  final String severity;
+  final DateTime detectedAt;
+  final double lat;
+  final double lng;
+  final String locationName;
+  final int trafficPercent;
+
+  const _ActiveJam({
+    required this.severity,
+    required this.detectedAt,
+    required this.lat,
+    required this.lng,
+    required this.locationName,
+    required this.trafficPercent,
+  });
 }

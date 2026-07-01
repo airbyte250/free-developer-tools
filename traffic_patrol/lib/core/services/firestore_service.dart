@@ -80,25 +80,7 @@ class FirestoreService {
     try {
       final alertsData = await _api.getAlerts();
       final alerts = alertsData
-          .where((a) => a['status'] != 'resolved')
-          .map((a) => TrafficAlert(
-                id: a['id'].toString(),
-                location: LatLng(
-                  (a['latitude'] as num?)?.toDouble() ?? 0,
-                  (a['longitude'] as num?)?.toDouble() ?? 0,
-                ),
-                locationName: a['areaName'] ?? a['description'] ?? '',
-                severity: TrafficSeverity.fromString(a['severity'] ?? 'medium'),
-                source: AlertSource.automatic,
-                status: AlertStatus.values.firstWhere(
-                  (s) => s.name == (a['status'] ?? 'active'),
-                  orElse: () => AlertStatus.active,
-                ),
-                reportedBy: a['reportedBy'],
-                description: a['description'],
-                createdAt: DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime.now(),
-                updatedAt: DateTime.tryParse(a['updatedAt']?.toString() ?? '') ?? DateTime.now(),
-              ))
+          .map((a) => TrafficAlert.fromJson(a))
           .toList();
       if (!controller.isClosed) controller.add(alerts);
     } catch (e) {
