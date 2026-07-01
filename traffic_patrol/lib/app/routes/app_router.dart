@@ -11,6 +11,7 @@ import 'package:traffic_patrol/features/admin/screens/add_officer_screen.dart';
 import 'package:traffic_patrol/features/sos/screens/sos_screen.dart';
 import 'package:traffic_patrol/features/voice_report/screens/voice_report_screen.dart';
 import 'package:traffic_patrol/features/auth/screens/splash_screen.dart';
+import 'package:traffic_patrol/features/settings/screens/notification_settings_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -66,6 +67,11 @@ class AppRouter {
         path: '/voice-report',
         name: 'voiceReport',
         builder: (context, state) => const VoiceReportScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const NotificationSettingsScreen(),
       ),
       // Admin routes
       GoRoute(

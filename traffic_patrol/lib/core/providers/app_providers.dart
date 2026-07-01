@@ -3,6 +3,7 @@ import 'package:traffic_patrol/core/services/auth_service.dart';
 import 'package:traffic_patrol/core/services/firestore_service.dart';
 import 'package:traffic_patrol/core/services/location_service.dart';
 import 'package:traffic_patrol/core/services/notification_service.dart';
+import 'package:traffic_patrol/core/services/traffic_monitor_service.dart';
 import 'package:traffic_patrol/models/officer.dart';
 
 // Services
@@ -13,6 +14,10 @@ final locationServiceProvider =
     Provider<LocationService>((ref) => LocationService());
 final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService());
+final trafficMonitorProvider = Provider<TrafficMonitorService>((ref) {
+  final notifService = ref.read(notificationServiceProvider);
+  return TrafficMonitorService(notifService);
+});
 
 // Current officer
 final currentOfficerProvider =

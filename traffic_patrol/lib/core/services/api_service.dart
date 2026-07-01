@@ -204,4 +204,30 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
     );
   }
+
+  Future<void> saveFcmToken(String officerId, String token) async {
+    await http.post(
+      Uri.parse('$_baseUrl/officers/$officerId/fcm-token'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'fcmToken': token}),
+    );
+  }
+
+  Future<Map<String, dynamic>> getNotificationSettings(String officerId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/officers/$officerId/notification-settings'),
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    return {'enabled': true, 'delayMinutes': 0};
+  }
+
+  Future<void> saveNotificationSettings(String officerId, {required bool enabled, required int delayMinutes}) async {
+    await http.post(
+      Uri.parse('$_baseUrl/officers/$officerId/notification-settings'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'enabled': enabled, 'delayMinutes': delayMinutes}),
+    );
+  }
 }

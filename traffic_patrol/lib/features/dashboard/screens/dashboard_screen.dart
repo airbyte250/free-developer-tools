@@ -34,13 +34,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     _startLocationTracking();
+    _startTrafficMonitoring();
+    _initNotifications();
   }
 
   @override
   void dispose() {
     _locationTimer?.cancel();
     _positionSub?.cancel();
+    ref.read(trafficMonitorProvider).stop();
     super.dispose();
+  }
+
+  Future<void> _initNotifications() async {
+    final notifService = ref.read(notificationServiceProvider);
+    await notifService.initialize();
+
+    // Save FCM token for server-side push notifications
+    try {
+      final token = await notifService.getToken();
+      final officer = ref.read(currentOfficerProvider);
+      if (token != null && officer != null) {
+        await _apiService.saveFcmToken(officer.id, token);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _startTrafficMonitoring() async {
+    final officer = ref.read(currentOfficerProvider);
+    if (officer == null) return;
+    final trafficMonitor = ref.read(trafficMonitorProvider);
+    await trafficMonitor.start(
+      officerId: officer.id,
+      officerName: officer.name,
+    );
   }
 
   Future<void> _startLocationTracking() async {
@@ -108,6 +135,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             icon: const Icon(Icons.person),
             onPressed: () => _showProfileSheet(context, officer.name,
                 officer.role, officer.badgeNumber, officer.station),
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_active),
+            tooltip: 'Notification Settings',
+            onPressed: () => context.push('/settings'),
           ),
           IconButton(
             icon: const Icon(Icons.edit_location_alt),

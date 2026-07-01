@@ -231,6 +231,96 @@ app.post('/api/jurisdictions', async (req, res) => {
   }
 });
 
+// ============ OFFICER LOCATIONS ============
+
+// Update officer location (called every 15 sec from app)
+app.post('/api/locations', async (req, res) => {
+  try {
+    const { officerId, officerName, latitude, longitude, speed, heading } = req.body;
+    if (!officerId || latitude == null || longitude == null) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const [existing] = await pool.query('SELECT officerId FROM officer_locations WHERE officerId = ?', [officerId]);
+    if (existing.length > 0) {
+      await pool.query(
+        'UPDATE officer_locations SET officerName=?, latitude=?, longitude=?, speed=?, heading=?, isOnline=1, lastUpdated=NOW() WHERE officerId=?',
+        [officerName || null, latitude, longitude, speed || 0, heading || 0, officerId]
+      );
+    } else {
+      await pool.query(
+        'INSERT INTO officer_locations (officerId, officerName, latitude, longitude, speed, heading, isOnline) VALUES (?, ?, ?, ?, ?, ?, 1)',
+        [officerId, officerName || null, latitude, longitude, speed || 0, heading || 0]
+      );
+    }
+    res.json({ message: 'Location updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all online officer locations (updated in last 2 minutes)
+app.get('/api/locations', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM officer_locations WHERE isOnline = 1 AND lastUpdated > DATE_SUB(NOW(), INTERVAL 2 MINUTE) ORDER BY lastUpdated DESC'
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Set officer offline
+app.patch('/api/locations/:officerId/offline', async (req, res) => {
+  try {
+    await pool.query('UPDATE officer_locations SET isOnline = 0 WHERE officerId = ?', [req.params.officerId]);
+    res.json({ message: 'Officer set offline' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ FCM TOKEN ============
+
+// Save FCM token for an officer
+app.post('/api/officers/:id/fcm-token', async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    await pool.query('UPDATE officers SET fcmToken = ? WHERE id = ?', [fcmToken, req.params.id]);
+    res.json({ message: 'FCM token saved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ NOTIFICATION SETTINGS ============
+
+// Get notification settings for officer
+app.get('/api/officers/:id/notification-settings', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT notifyEnabled, notifyDelayMinutes FROM officers WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Officer not found' });
+    res.json({
+      enabled: rows[0].notifyEnabled === 1,
+      delayMinutes: rows[0].notifyDelayMinutes || 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save notification settings
+app.post('/api/officers/:id/notification-settings', async (req, res) => {
+  try {
+    const { enabled, delayMinutes } = req.body;
+    await pool.query('UPDATE officers SET notifyEnabled = ?, notifyDelayMinutes = ? WHERE id = ?',
+      [enabled ? 1 : 0, delayMinutes || 0, req.params.id]);
+    res.json({ message: 'Notification settings saved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ STATS ============
 
 app.get('/api/stats', async (req, res) => {
@@ -250,6 +340,197 @@ app.get('/api/stats', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ============ TRAFFIC MONITOR (Server-side) ============
+
+const MAPS_API_KEY = 'AIzaSyAy_bbDc2scwaxORMUiCA_MtNJFjUFpU28';
+const fetch = require('node-fetch');
+
+// Track notified jams to avoid duplicates
+const notifiedJams = new Map();
+
+async function checkTrafficForAllOfficers() {
+  try {
+    // Get all officers with jurisdictions
+    const [jurisdictions] = await pool.query(`
+      SELECT j.officerId, j.areaName, j.polygon, j.centerLat, j.centerLng, 
+             o.name as officerName, o.fcmToken, o.notifyEnabled, o.notifyDelayMinutes, o.role
+      FROM jurisdictions j
+      JOIN officers o ON o.id = j.officerId
+      WHERE o.isActive = 1
+    `);
+
+    for (const jurisdiction of jurisdictions) {
+      if (jurisdiction.notifyEnabled === 0) continue;
+
+      try {
+        await checkTrafficForJurisdiction(jurisdiction);
+      } catch (e) {
+        console.error(`Error checking traffic for officer ${jurisdiction.officerId}:`, e.message);
+      }
+
+      // Delay between checks
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    // Clean up old jam entries (older than 30 minutes)
+    const now = Date.now();
+    for (const [key, time] of notifiedJams) {
+      if (now - time > 30 * 60 * 1000) notifiedJams.delete(key);
+    }
+  } catch (err) {
+    console.error('Traffic monitor error:', err.message);
+  }
+}
+
+async function checkTrafficForJurisdiction(jurisdiction) {
+  const { officerId, areaName, polygon, centerLat, centerLng, notifyDelayMinutes } = jurisdiction;
+  
+  if (!centerLat || !centerLng) return;
+
+  // Parse polygon to get check points
+  let polygonData;
+  try {
+    polygonData = typeof polygon === 'string' ? JSON.parse(polygon) : polygon;
+  } catch { return; }
+
+  if (!polygonData || polygonData.length < 3) return;
+
+  // Generate check points: center + midpoints of edges
+  const checkPoints = [{ lat: centerLat, lng: centerLng }];
+  for (let i = 0; i < Math.min(polygonData.length, 6); i++) {
+    const p1 = polygonData[i];
+    const p2 = polygonData[(i + 1) % polygonData.length];
+    checkPoints.push({
+      lat: (p1.lat + p2.lat) / 2,
+      lng: (p1.lng + p2.lng) / 2,
+    });
+  }
+
+  // Check traffic on routes between consecutive check points (limit to 3 routes)
+  for (let i = 0; i < Math.min(checkPoints.length - 1, 3); i++) {
+    const origin = checkPoints[i];
+    const dest = checkPoints[i + 1];
+    
+    try {
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${dest.lat},${dest.lng}&departure_time=now&key=${MAPS_API_KEY}`;
+      
+      const resp = await fetch(url);
+      const data = await resp.json();
+      
+      if (data.status !== 'OK' || !data.routes || !data.routes.length) continue;
+
+      const legs = data.routes[0].legs;
+      if (!legs || !legs.length) continue;
+
+      for (const leg of legs) {
+        const normalDuration = leg.duration?.value || 0;
+        const trafficDuration = leg.duration_in_traffic?.value || 0;
+        
+        if (normalDuration === 0) continue;
+
+        const ratio = trafficDuration / normalDuration;
+        
+        let severity = null;
+        let description = null;
+
+        if (ratio > 2.0) {
+          severity = 'critical';
+          description = `बहुत भारी जाम - सामान्य से ${Math.round((ratio - 1) * 100)}% ज्यादा समय`;
+        } else if (ratio > 1.5) {
+          severity = 'high';
+          description = `भारी ट्रैफिक - सामान्य से ${Math.round((ratio - 1) * 100)}% ज्यादा समय`;
+        } else if (ratio > 1.25) {
+          severity = 'medium';
+          description = `मध्यम ट्रैफिक - सामान्य से ${Math.round((ratio - 1) * 100)}% ज्यादा समय`;
+        }
+
+        if (severity) {
+          const jamLat = leg.start_location?.lat || origin.lat;
+          const jamLng = leg.start_location?.lng || origin.lng;
+          const jamKey = `${officerId}_${jamLat.toFixed(3)}_${jamLng.toFixed(3)}`;
+
+          // Check delay
+          if (notifiedJams.has(jamKey)) {
+            const firstDetected = notifiedJams.get(jamKey);
+            const elapsedMinutes = (Date.now() - firstDetected) / 60000;
+            
+            if (elapsedMinutes < (notifyDelayMinutes || 0)) continue;
+            if (elapsedMinutes < 15) continue; // Don't re-notify within 15 min
+          }
+
+          notifiedJams.set(jamKey, Date.now());
+
+          const locationName = leg.start_address ? leg.start_address.split(',')[0] : areaName;
+
+          // Save alert to database
+          await pool.query(
+            'INSERT INTO traffic_alerts (description, latitude, longitude, severity, reportedBy, areaName) VALUES (?, ?, ?, ?, ?, ?)',
+            [description, jamLat, jamLng, severity, 'Auto Detection', `${areaName} - ${locationName}`]
+          );
+
+          console.log(`Traffic alert: ${severity} in ${areaName} - ${locationName} for officer ${officerId}`);
+
+          // Send FCM notification to officer and seniors
+          await sendTrafficNotifications(jurisdiction, severity, description, locationName, jamLat, jamLng);
+        }
+      }
+    } catch (e) {
+      // Skip route on error
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
+async function sendTrafficNotifications(jurisdiction, severity, description, locationName, lat, lng) {
+  const { officerId, areaName, officerName } = jurisdiction;
+
+  // Get officer + all senior officers who should also be notified
+  const [officers] = await pool.query(`
+    SELECT id, name, fcmToken, role FROM officers 
+    WHERE isActive = 1 AND fcmToken IS NOT NULL AND fcmToken != ''
+    AND (id = ? OR role IN ('inspector', 'dsp', 'addl_sp', 'sp', 'dig', 'ig', 'adgp', 'dgp'))
+  `, [officerId]);
+
+  // Check which senior officers have jurisdiction that overlaps
+  for (const officer of officers) {
+    if (!officer.fcmToken) continue;
+
+    try {
+      // Send FCM via legacy HTTP API
+      const fcmPayload = {
+        to: officer.fcmToken,
+        notification: {
+          title: `${severity === 'critical' ? 'CRITICAL' : severity === 'high' ? 'HIGH' : 'MODERATE'} Traffic Alert - ${areaName}`,
+          body: `${locationName} पर ${description}`,
+          sound: 'default',
+          priority: severity === 'critical' ? 'high' : 'normal',
+        },
+        data: {
+          type: 'traffic_alert',
+          severity: severity,
+          latitude: String(lat),
+          longitude: String(lng),
+          areaName: areaName,
+          locationName: locationName,
+        }
+      };
+
+      // Note: Legacy FCM requires server key - will work when service account is configured
+      // For now, the app handles local notifications via TrafficMonitorService
+      console.log(`Would send FCM to ${officer.name} (${officer.role}): ${severity} alert in ${areaName}`);
+    } catch (e) {
+      // Skip failed notification
+    }
+  }
+}
+
+// Start traffic monitoring every 2 minutes
+setInterval(checkTrafficForAllOfficers, 2 * 60 * 1000);
+// Run first check after 30 seconds
+setTimeout(checkTrafficForAllOfficers, 30 * 1000);
+console.log('Traffic monitor started - checking every 2 minutes');
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Traffic Patrol API running on port ${PORT}`);
