@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/constants/app_constants.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
+import 'package:traffic_patrol/core/services/api_service.dart';
 import 'package:traffic_patrol/models/traffic_alert.dart';
 import 'package:traffic_patrol/models/officer_location.dart';
 import 'package:traffic_patrol/features/dashboard/screens/dashboard_screen.dart';
@@ -25,28 +28,89 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
   GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
   final Set<Circle> _trafficCircles = {};
+  final Set<Polygon> _polygons = {};
   bool _trafficEnabled = true;
   bool _showOfficers = true;
-  LatLng? _currentPosition;
+  LatLng? _areaCenter;
+  List<LatLng> _jurisdictionPoints = [];
+  String _areaName = '';
 
   static const LatLng _defaultPosition = LatLng(26.9124, 75.7873); // Jaipur
 
   @override
   void initState() {
     super.initState();
-    _initCurrentLocation();
+    _loadJurisdiction();
+  }
+
+  Future<void> _loadJurisdiction() async {
+    final officer = ref.read(currentOfficerProvider);
+    if (officer == null) return;
+
+    try {
+      final apiService = ApiService();
+      final data = await apiService.getJurisdiction(officer.id);
+      if (data != null && mounted) {
+        List<LatLng> points = [];
+        if (data['polygon'] != null) {
+          final polygonData = data['polygon'] is String
+              ? json.decode(data['polygon'] as String) as List
+              : data['polygon'] as List;
+          points = polygonData
+              .map((p) => LatLng(
+                    (p['lat'] as num).toDouble(),
+                    (p['lng'] as num).toDouble(),
+                  ))
+              .toList();
+        }
+
+        final centerLat = (data['centerLat'] as num?)?.toDouble();
+        final centerLng = (data['centerLng'] as num?)?.toDouble();
+
+        setState(() {
+          _jurisdictionPoints = points;
+          _areaName = data['areaName'] ?? '';
+          if (centerLat != null && centerLng != null) {
+            _areaCenter = LatLng(centerLat, centerLng);
+          }
+          _updateJurisdictionPolygon();
+        });
+
+        if (_areaCenter != null) {
+          _mapController?.animateCamera(
+            CameraUpdate.newLatLngZoom(_areaCenter!, 14),
+          );
+        }
+      }
+    } catch (e) {
+      _initCurrentLocation();
+    }
+  }
+
+  void _updateJurisdictionPolygon() {
+    _polygons.clear();
+    if (_jurisdictionPoints.length >= 3) {
+      _polygons.add(
+        Polygon(
+          polygonId: const PolygonId('my_area'),
+          points: _jurisdictionPoints,
+          fillColor: AppColors.primary.withValues(alpha: 0.12),
+          strokeColor: AppColors.primary,
+          strokeWidth: 3,
+        ),
+      );
+    }
   }
 
   Future<void> _initCurrentLocation() async {
     final locationService = ref.read(locationServiceProvider);
     final position = await locationService.getCurrentPosition();
     if (position != null && mounted) {
-      setState(() {
-        _currentPosition =
-            LatLng(position.latitude, position.longitude);
-      });
       _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(_currentPosition!, 14),
+        CameraUpdate.newLatLngZoom(
+          LatLng(position.latitude, position.longitude),
+          14,
+        ),
       );
     }
   }
@@ -56,26 +120,24 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
     final officerLocations = ref.watch(officerLocationsProvider);
     final trafficAlerts = ref.watch(trafficAlertsProvider);
 
-    // Build markers from officer locations
     officerLocations.whenData((locations) {
       _updateOfficerMarkers(locations);
     });
 
-    // Build traffic alert markers
     trafficAlerts.whenData((alerts) {
       _updateTrafficMarkers(alerts);
     });
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Live Traffic Map'),
+        title: Text(_areaName.isNotEmpty ? 'Live Map - $_areaName' : 'Live Traffic Map'),
         actions: [
           IconButton(
             icon: Icon(
               _trafficEnabled ? Icons.layers : Icons.layers_clear,
               color: _trafficEnabled ? AppColors.accent : Colors.white54,
             ),
-            tooltip: 'Toggle Traffic Layer',
+            tooltip: 'Traffic Layer',
             onPressed: () {
               setState(() => _trafficEnabled = !_trafficEnabled);
             },
@@ -85,14 +147,23 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
               Icons.people,
               color: _showOfficers ? AppColors.accent : Colors.white54,
             ),
-            tooltip: 'Toggle Officers',
+            tooltip: 'Officers',
             onPressed: () {
               setState(() => _showOfficers = !_showOfficers);
             },
           ),
           IconButton(
             icon: const Icon(Icons.my_location),
-            onPressed: _goToCurrentLocation,
+            tooltip: 'My Area',
+            onPressed: () {
+              if (_areaCenter != null) {
+                _mapController?.animateCamera(
+                  CameraUpdate.newLatLngZoom(_areaCenter!, 14),
+                );
+              } else {
+                _initCurrentLocation();
+              }
+            },
           ),
         ],
       ),
@@ -100,24 +171,96 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
         children: [
           GoogleMap(
             initialCameraPosition: CameraPosition(
-              target: _currentPosition ?? _defaultPosition,
-              zoom: 13,
+              target: _areaCenter ?? _defaultPosition,
+              zoom: 14,
             ),
             onMapCreated: (controller) {
               _mapController = controller;
-              if (_currentPosition != null) {
+              if (_areaCenter != null) {
                 controller.animateCamera(
-                  CameraUpdate.newLatLngZoom(_currentPosition!, 14),
+                  CameraUpdate.newLatLngZoom(_areaCenter!, 14),
                 );
               }
             },
             markers: _markers,
             circles: _trafficCircles,
+            polygons: _polygons,
             trafficEnabled: _trafficEnabled,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
+          ),
+
+          // Area info banner
+          if (_areaName.isNotEmpty)
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Card(
+                color: AppColors.primary,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.location_on, color: AppColors.accent, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        _areaName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Traffic alerts count
+          Positioned(
+            top: 12,
+            right: 12,
+            child: trafficAlerts.when(
+              data: (alerts) {
+                final activeAlerts = alerts
+                    .where((a) => a.status == AlertStatus.active)
+                    .toList();
+                if (activeAlerts.isEmpty) return const SizedBox();
+                return Card(
+                  color: AppColors.sosRed,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.warning, color: Colors.white, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${activeAlerts.length} Alert${activeAlerts.length > 1 ? 's' : ''}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              loading: () => const SizedBox(),
+              error: (_, _) => const SizedBox(),
+            ),
           ),
 
           // Legend
@@ -127,21 +270,31 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
             child: _buildLegend(),
           ),
 
-          // Traffic alerts count overlay
+          // Traffic info
           Positioned(
-            top: 16,
-            left: 16,
+            bottom: 16,
             right: 16,
-            child: trafficAlerts.when(
-              data: (alerts) {
-                final activeAlerts = alerts
-                    .where((a) => a.status == AlertStatus.active)
-                    .toList();
-                if (activeAlerts.isEmpty) return const SizedBox();
-                return _buildAlertsBanner(activeAlerts);
-              },
-              loading: () => const SizedBox(),
-              error: (_, _) => const SizedBox(),
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Google Traffic',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    _legendRow(const Color(0xFF4CAF50), 'Fast'),
+                    _legendRow(const Color(0xFFFFC107), 'Moderate'),
+                    _legendRow(const Color(0xFFFF9800), 'Slow'),
+                    _legendRow(const Color(0xFFF44336), 'Jam'),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -217,7 +370,6 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
         ),
       );
 
-      // Add a circle around the alert
       _trafficCircles.add(
         Circle(
           circleId: CircleId('circle_${alert.id}'),
@@ -260,39 +412,26 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
     }
   }
 
-  void _goToCurrentLocation() async {
-    final locationService = ref.read(locationServiceProvider);
-    final position = await locationService.getCurrentPosition();
-    if (position != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(
-          LatLng(position.latitude, position.longitude),
-          15,
-        ),
-      );
-    }
-  }
-
   Widget _buildLegend() {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Traffic Status',
+              'Alerts',
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 13),
+                  fontWeight: FontWeight.bold, fontSize: 11),
             ),
-            const SizedBox(height: 6),
-            _legendRow(AppColors.normalSpeed, 'Normal (>20 km/h)'),
-            _legendRow(AppColors.slowSpeed, 'Slow (5-20 km/h)'),
-            _legendRow(AppColors.jamSpeed, 'Jam (<5 km/h)'),
+            const SizedBox(height: 4),
+            _legendRow(AppColors.normalSpeed, 'Normal'),
+            _legendRow(AppColors.slowSpeed, 'Slow'),
+            _legendRow(AppColors.jamSpeed, 'Jam'),
           ],
         ),
       ),
@@ -306,45 +445,16 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 14,
-            height: 14,
+            width: 12,
+            height: 12,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 8),
-          Text(text, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 6),
+          Text(text, style: const TextStyle(fontSize: 11)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAlertsBanner(List<TrafficAlert> activeAlerts) {
-    return Card(
-      color: AppColors.sosRed,
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${activeAlerts.length} Active Traffic Alert${activeAlerts.length > 1 ? 's' : ''} in your area',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

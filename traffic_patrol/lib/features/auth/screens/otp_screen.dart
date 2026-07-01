@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
 import 'package:traffic_patrol/core/services/auth_service.dart';
@@ -51,6 +52,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           await authService.getOfficerByPhone(widget.phoneNumber);
       if (officer != null && mounted) {
         ref.read(currentOfficerProvider.notifier).setOfficer(officer);
+
+        // Save login session
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_in_phone', widget.phoneNumber);
 
         // Check if jurisdiction is set
         final firestoreService = ref.read(firestoreServiceProvider);

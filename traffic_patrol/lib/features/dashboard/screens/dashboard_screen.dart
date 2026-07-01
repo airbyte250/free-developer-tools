@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/constants/role_hierarchy.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
@@ -37,8 +38,15 @@ class DashboardScreen extends ConsumerWidget {
                 officer.role, officer.badgeNumber, officer.station),
           ),
           IconButton(
+            icon: const Icon(Icons.edit_location_alt),
+            tooltip: 'Change Area',
+            onPressed: () => context.push('/jurisdiction'),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('logged_in_phone');
               await ref.read(authServiceProvider).signOut();
               ref.read(currentOfficerProvider.notifier).clear();
               if (context.mounted) context.go('/login');

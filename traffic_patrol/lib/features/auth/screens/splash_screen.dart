@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
-import 'package:traffic_patrol/core/services/auth_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -39,15 +39,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    final authService = ref.read(authServiceProvider);
-    final user = authService.currentUser;
+    final prefs = await SharedPreferences.getInstance();
+    final savedPhone = prefs.getString('logged_in_phone');
 
-    if (user != null && !AuthService.testMode) {
-      // User is logged in, check if officer exists (only in production mode)
-      final officer = await authService.getCurrentOfficer();
+    if (savedPhone != null && savedPhone.isNotEmpty) {
+      final authService = ref.read(authServiceProvider);
+      final officer = await authService.getOfficerByPhone(savedPhone);
       if (officer != null && mounted) {
         ref.read(currentOfficerProvider.notifier).setOfficer(officer);
-        // Check if jurisdiction is set
         final firestoreService = ref.read(firestoreServiceProvider);
         final jurisdiction =
             await firestoreService.getOfficerJurisdiction(officer.id);
