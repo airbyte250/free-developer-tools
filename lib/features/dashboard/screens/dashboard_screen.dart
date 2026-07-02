@@ -9,6 +9,7 @@ import 'package:traffic_patrol/core/constants/app_colors.dart';
 import 'package:traffic_patrol/core/constants/role_hierarchy.dart';
 import 'package:traffic_patrol/core/providers/app_providers.dart';
 import 'package:traffic_patrol/core/services/api_service.dart';
+import 'package:traffic_patrol/core/services/background_alert_service.dart';
 import 'package:traffic_patrol/features/dashboard/widgets/alert_card.dart';
 import 'package:traffic_patrol/features/dashboard/widgets/stats_card.dart';
 import 'package:traffic_patrol/models/traffic_alert.dart';
@@ -42,7 +43,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void dispose() {
     _locationTimer?.cancel();
     _positionSub?.cancel();
-    ref.read(trafficMonitorProvider).stop();
+    // Do NOT stop traffic monitor here - let background service handle it
     super.dispose();
   }
 
@@ -68,6 +69,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       officerId: officer.id,
       officerName: officer.name,
     );
+
+    // Start background alert polling service
+    await BackgroundAlertService.startService(officer.id);
   }
 
   Future<void> _startLocationTracking() async {
@@ -150,6 +154,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               _positionSub?.cancel();
+              // Stop background service on logout
+              await BackgroundAlertService.stopService();
+              ref.read(trafficMonitorProvider).stop();
               final off = ref.read(currentOfficerProvider);
               if (off != null) {
                 try { await _apiService.setOffline(off.id); } catch (_) {}

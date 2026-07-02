@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:traffic_patrol/app/routes/app_router.dart';
 import 'package:traffic_patrol/app/theme/app_theme.dart';
+import 'package:traffic_patrol/core/services/background_alert_service.dart';
 import 'package:traffic_patrol/firebase_options.dart';
 
 Future<void> main() async {
@@ -13,6 +14,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize background alert service
+  await BackgroundAlertService.initialize();
 
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
