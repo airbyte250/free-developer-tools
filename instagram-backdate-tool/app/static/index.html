@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meta Backdate Publisher</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --fg:#e2e8f0; --muted:#94a3b8; --accent:#6366f1; --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:20px 24px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; }
+  h1 { font-size:18px; margin:0; }
+  main { max-width:900px; margin:0 auto; padding:24px; }
+  .card { background:var(--card); border:1px solid #334155; border-radius:10px; padding:20px; margin-bottom:20px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, select, textarea { width:100%; padding:9px 10px; border-radius:6px; border:1px solid #475569; background:#0f172a; color:var(--fg); font-size:14px; }
+  textarea { resize:vertical; min-height:60px; }
+  button { background:var(--accent); color:#fff; border:0; padding:10px 16px; border-radius:6px; font-size:14px; cursor:pointer; }
+  button.secondary { background:#334155; }
+  a.btn { display:inline-block; text-decoration:none; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid #334155; vertical-align:top; }
+  .pill { padding:2px 8px; border-radius:999px; font-size:11px; }
+  .pending{background:#334155;} .processing{background:#1e40af;} .published{background:var(--ok);color:#04240f;} .failed{background:var(--bad);}
+  .note { font-size:13px; color:var(--muted); }
+  .warn { color:var(--warn); }
+  .row { display:flex; gap:12px; } .row > div { flex:1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Meta Backdate Publisher</h1>
+  <a class="btn" href="/auth/login"><button>Connect Facebook / Instagram</button></a>
+</header>
+<main>
+  <div class="card">
+    <p class="note">
+      <b>Approach A — Facebook Page:</b> <code>backdated_time</code> is officially supported; the post shows the chosen date.<br />
+      <b class="warn">Approach B — Instagram (experimental):</b> Instagram's API does not document any backdate parameter.
+      The tool sends it anyway, then reads the published timestamp back to report whether it actually applied (it usually will not).
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Create a post</h3>
+    <label>Account</label>
+    <select id="account"></select>
+
+    <label>Target</label>
+    <select id="target">
+      <option value="facebook">Facebook Page (backdate supported)</option>
+      <option value="instagram">Instagram (experimental backdate)</option>
+    </select>
+
+    <label>Image URL (public)</label>
+    <input id="image_url" placeholder="https://example.com/photo.jpg" />
+
+    <label>Caption</label>
+    <textarea id="caption"></textarea>
+
+    <div class="row">
+      <div>
+        <label>Backdated time</label>
+        <input id="backdated_time" type="datetime-local" />
+      </div>
+      <div>
+        <label>Granularity (Facebook)</label>
+        <select id="granularity">
+          <option>year</option><option>month</option><option selected>day</option>
+          <option>hour</option><option>min</option><option>none</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Publish at (optional — leave blank to publish now; future must be &lt; 30 days)</label>
+    <input id="scheduled_for" type="datetime-local" />
+
+    <p><button onclick="createPost()">Queue post</button>
+       <button class="secondary" onclick="runNow()">Run queue now</button></p>
+    <p id="msg" class="note"></p>
+  </div>
+
+  <div class="card">
+    <h3>Queue</h3>
+    <table>
+      <thead><tr><th>ID</th><th>Target</th><th>Backdate</th><th>Status</th><th>Result</th></tr></thead>
+      <tbody id="posts"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+async function j(url, opts) { const r = await fetch(url, opts); const d = await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.detail || r.statusText); return d; }
+
+async function loadAccounts() {
+  const accounts = await j('/api/accounts');
+  const sel = document.getElementById('account');
+  sel.innerHTML = accounts.length ? '' : '<option value="">— connect an account first —</option>';
+  for (const a of accounts) {
+    const ig = a.ig_username ? ` · IG @${a.ig_username}` : ' · no IG linked';
+    sel.insertAdjacentHTML('beforeend', `<option value="${a.id}">${a.page_name}${ig}</option>`);
+  }
+}
+
+async function loadPosts() {
+  const posts = await j('/api/posts');
+  const tb = document.getElementById('posts');
+  tb.innerHTML = '';
+  for (const p of posts) {
+    let result = p.error ? `<span class="warn">${p.error}</span>` : (p.result_id || '');
+    if (p.target === 'instagram' && p.status === 'published') {
+      result += p.backdate_applied ? ' — backdate applied' : ` — backdate ignored (actual: ${p.published_timestamp||'?'})`;
+    }
+    tb.insertAdjacentHTML('beforeend',
+      `<tr><td>${p.id}</td><td>${p.target}</td><td>${p.backdated_time}</td>
+       <td><span class="pill ${p.status}">${p.status}</span></td><td>${result}</td></tr>`);
+  }
+}
+
+function toIso(v) { return v ? new Date(v).toISOString() : null; }
+
+async function createPost() {
+  const msg = document.getElementById('msg');
+  msg.textContent = '';
+  const body = {
+    account_id: Number(document.getElementById('account').value),
+    target: document.getElementById('target').value,
+    image_url: document.getElementById('image_url').value.trim(),
+    caption: document.getElementById('caption').value,
+    backdated_time: toIso(document.getElementById('backdated_time').value),
+    granularity: document.getElementById('granularity').value,
+    scheduled_for: toIso(document.getElementById('scheduled_for').value),
+  };
+  if (!body.account_id) { msg.textContent = 'Select an account.'; return; }
+  if (!body.image_url) { msg.textContent = 'Image URL required.'; return; }
+  if (!body.backdated_time) { msg.textContent = 'Backdated time required.'; return; }
+  try {
+    await j('/api/posts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    msg.textContent = 'Queued.';
+    loadPosts();
+  } catch (e) { msg.textContent = 'Error: ' + e.message; }
+}
+
+async function runNow() {
+  const msg = document.getElementById('msg');
+  try { const d = await j('/api/run', { method:'POST' }); msg.textContent = `Processed ${d.processed} post(s).`; loadPosts(); }
+  catch (e) { msg.textContent = 'Error: ' + e.message; }
+}
+
+loadAccounts(); loadPosts(); setInterval(loadPosts, 5000);
+</script>
+</body>
+</html>
